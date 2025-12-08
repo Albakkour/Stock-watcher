@@ -1,0 +1,147 @@
+openapi: 3.0.3
+info:
+  title: Cloud Stock Watcher API
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000
+    description: Local dev server
+paths:
+  /api/stocks:
+    get:
+      summary: List current stock prices
+      operationId: listStocks
+      responses:
+        "200":
+          description: List of current stock prices
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stocks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Stock'
+  /api/alerts:
+    get:
+      summary: List alerts
+      operationId: listAlerts
+      responses:
+        "200":
+          description: List of alerts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  alerts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Alert'
+    post:
+      summary: Create a new alert
+      operationId: createAlert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertCreateRequest'
+      responses:
+        "201":
+          description: Alert created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  alert:
+                    $ref: '#/components/schemas/Alert'
+        "400":
+          description: Invalid request
+  /api/notifications:
+    get:
+      summary: List triggered notifications
+      operationId: listNotifications
+      responses:
+        "200":
+          description: List of triggered notifications
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notifications:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Notification'
+
+components:
+  schemas:
+    Stock:
+      type: object
+      properties:
+        symbol:
+          type: string
+          example: TSLA
+        price:
+          type: number
+          format: float
+          example: 210.5
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-12-06T13:45:00Z"
+    Alert:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        symbol:
+          type: string
+          example: TSLA
+        direction:
+          type: string
+          enum: [above, below]
+          example: above
+        threshold:
+          type: number
+          format: float
+          example: 200.0
+        created_at:
+          type: string
+          format: date-time
+    AlertCreateRequest:
+      type: object
+      required: [symbol, direction, threshold]
+      properties:
+        symbol:
+          type: string
+        direction:
+          type: string
+          enum: [above, below]
+        threshold:
+          type: number
+          format: float
+    Notification:
+      type: object
+      properties:
+        id:
+          type: integer
+        alert_id:
+          type: integer
+        symbol:
+          type: string
+        direction:
+          type: string
+          enum: [above, below]
+        threshold:
+          type: number
+          format: float
+        price:
+          type: number
+          format: float
+        triggered_at:
+          type: string
+          format: date-time

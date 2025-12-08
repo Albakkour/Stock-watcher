@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-api
+  namespace: cloud-stock-watcher
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-api
+  template:
+    metadata:
+      labels:
+        app: backend-api
+    spec:
+      containers:
+        - name: backend-api
+          image: gitlab.control.lth.se:5050/regler/frtn90/2025/agroup01/backend-api:v4
+          imagePullPolicy: Always
+          env:
+            - name: REDIS_HOST
+              value: "redis"
+            - name: REDIS_PORT
+              value: "6379"
+          ports:
+            - containerPort: 8000
+              name: http
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-api
+  namespace: cloud-stock-watcher
+spec:
+  type: NodePort
+  selector:
+    app: backend-api
+  ports:
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
+      name: http
+      nodePort: 30081
+
