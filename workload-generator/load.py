@@ -30,7 +30,7 @@ def main():
                 requests.get(f"{args.base_url}/api/alerts", timeout=2)
             elif endpoint == "alerts_post":
                 body = {
-                    "symbol": random.choice(["TSLA", "AAPL", "MSFT"]),
+                    "symbol": random.choice(["TSLA", "AAPL", "MSFT","GOOG","NVDA"]),
                     "direction": random.choice(["above", "below"]),
                     "threshold": random.uniform(150, 250),
                 }

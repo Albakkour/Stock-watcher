@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: gitlab.control.lth.se:5050/regler/frtn90/2025/agroup01/frontend:v3
+          image: gitlab.control.lth.se:5050/regler/frtn90/2025/agroup01/frontend:v5
           imagePullPolicy: Always
           ports:
             - containerPort: 80

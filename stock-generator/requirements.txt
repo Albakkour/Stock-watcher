@@ -1,3 +1,4 @@
 redis
 pika   # RabbitMQ client
 python-dotenv
+yfinance

@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: stock-generator
-          image: gitlab.control.lth.se:5050/regler/frtn90/2025/agroup01/stock-generator:v2
+          image: gitlab.control.lth.se:5050/regler/frtn90/2025/agroup01/stock-generator:v5
           imagePullPolicy: Always
           env:
             - name: REDIS_HOST
@@ -29,6 +29,6 @@ spec:
             - name: RABBIT_PASS
               value: "guest"
             - name: STOCK_SYMBOLS
-              value: "TSLA,AAPL,MSFT,NVDA,GOOG"
+              value: "TSLA,AAPL,MSFT,NVDA,GOOG,AMZN"
             - name: UPDATE_PERIOD
               value: "5.0"
