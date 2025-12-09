@@ -14,17 +14,23 @@ spec:
         app: alert-engine
     spec:
       containers:
-        - name: alert-engine
-          image: gitlab.control.lth.se:5050/regler/frtn90/2025/agroup01/alert-engine:v1
-          imagePullPolicy: Always
-          env:
-            - name: REDIS_HOST
-              value: "redis"
-            - name: REDIS_PORT
-              value: "6379"
-            - name: RABBIT_HOST
-              value: "rabbitmq"
-            - name: RABBIT_USER
-              value: "guest"
-            - name: RABBIT_PASS
-              value: "guest"
+      - name: alert-engine
+        image: gitlab.control.lth.se:5050/regler/frtn90/2025/agroup01/alert-engine:v1
+        imagePullPolicy: Always
+        env:
+          - name: REDIS_HOST
+            value: "redis"
+          - name: REDIS_PORT
+            value: "6379"
+          - name: RABBIT_HOST
+            value: "rabbitmq"
+          - name: RABBIT_USER
+            value: "guest"
+          - name: RABBIT_PASS
+            value: "guest"
+        resources:
+          requests:
+            cpu: "50m"
+          limits:
+            cpu: "500m"
+
