@@ -29,6 +29,6 @@ spec:
             - name: RABBIT_PASS
               value: "guest"
             - name: STOCK_SYMBOLS
-              value: "TSLA,AAPL,MSFT"
+              value: "TSLA,AAPL,MSFT,NVDA,GOOG"
             - name: UPDATE_PERIOD
               value: "5.0"

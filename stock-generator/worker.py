@@ -13,7 +13,7 @@ RABBIT_HOST = os.getenv("RABBIT_HOST", "rabbitmq")
 RABBIT_USER = os.getenv("RABBIT_USER", "appuser")
 RABBIT_PASS = os.getenv("RABBIT_PASS", "apppass")
 
-SYMBOLS = os.getenv("STOCK_SYMBOLS", "TSLA,AAPL,MSFT").split(",")
+SYMBOLS = os.getenv("STOCK_SYMBOLS", "TSLA,AAPL,MSFT,NVDA,GOOG").split(",")
 PERIOD = float(os.getenv("UPDATE_PERIOD", "5.0"))
 
 r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
