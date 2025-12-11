@@ -159,8 +159,10 @@
 #     - kubectl rollout status deployment/alert-engine -n cloud-stock-watcher
 #     - kubectl rollout status deployment/backend-api -n cloud-stock-watcher
 #     - kubectl rollout status deployment/frontend -n cloud-stock-watcher
-test-runner:
+test-image:
   stage: test
-  image: ubuntu:22.04
+  image: alpine:latest
   script:
-    - echo "Runner works!"
+    - echo "Image works!"
+    - uname -a
+
