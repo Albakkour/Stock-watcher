@@ -74,86 +74,93 @@
 #     - kubectl rollout status deployment/backend-api -n cloud-stock-watcher
 #     - kubectl rollout status deployment/frontend -n cloud-stock-watcher
 
-stages:
-  - build
-  - deploy
+#---------------------------------------
 
-variables:
-  REGISTRY: "gitlab.control.lth.se:5050"
-  IMAGE_NAME: "regler/frtn90/2025/agroup01"
+# stages:
+#   - build
+#   - deploy
 
-# -------------------------------
-# 🔧 FUNCTION FOR ALL SERVICES
-# -------------------------------
+# variables:
+#   REGISTRY: "gitlab.control.lth.se:5050"
+#   IMAGE_NAME: "regler/frtn90/2025/agroup01"
 
-.build_template: &kaniko_build
-  stage: build
-  image:
-    name: gcr.io/kaniko-project/executor:latest
-    entrypoint: [""]
-  only:
-    - main
-    - Stock-watch-v2
-  script:
-    # Configure Kaniko authentication
-    - |
-      echo "Creating Docker auth config for Kaniko..."
-      echo "{\"auths\":{\"$REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+# # -------------------------------
+# # 🔧 FUNCTION FOR ALL SERVICES
+# # -------------------------------
+
+# .build_template: &kaniko_build
+#   stage: build
+#   image:
+#     name: gcr.io/kaniko-project/executor:latest
+#     entrypoint: [""]
+#   only:
+#     - main
+#     - Stock-watch-v2
+#   script:
+#     # Configure Kaniko authentication
+#     - |
+#       echo "Creating Docker auth config for Kaniko..."
+#       echo "{\"auths\":{\"$REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
     
-    # Execute Kaniko
-    - |
-      /kaniko/executor \
-        --context $CI_PROJECT_DIR/$SERVICE_DIR \
-        --dockerfile $CI_PROJECT_DIR/$SERVICE_DIR/Dockerfile \
-        --destination $REGISTRY/$IMAGE_NAME/$SERVICE_NAME:$CI_COMMIT_SHA
+#     # Execute Kaniko
+#     - |
+#       /kaniko/executor \
+#         --context $CI_PROJECT_DIR/$SERVICE_DIR \
+#         --dockerfile $CI_PROJECT_DIR/$SERVICE_DIR/Dockerfile \
+#         --destination $REGISTRY/$IMAGE_NAME/$SERVICE_NAME:$CI_COMMIT_SHA
 
-# -------------------------------
-# 📦 BUILD JOBS
-# -------------------------------
+# # -------------------------------
+# # 📦 BUILD JOBS
+# # -------------------------------
 
-build:stock-generator:
-  variables:
-    SERVICE_NAME: "stock-generator"
-    SERVICE_DIR: "stock-generator"
-  <<: *kaniko_build
+# build:stock-generator:
+#   variables:
+#     SERVICE_NAME: "stock-generator"
+#     SERVICE_DIR: "stock-generator"
+#   <<: *kaniko_build
 
-build:alert-engine:
-  variables:
-    SERVICE_NAME: "alert-engine"
-    SERVICE_DIR: "alert-engine"
-  <<: *kaniko_build
+# build:alert-engine:
+#   variables:
+#     SERVICE_NAME: "alert-engine"
+#     SERVICE_DIR: "alert-engine"
+#   <<: *kaniko_build
 
-build:backend-api:
-  variables:
-    SERVICE_NAME: "backend-api"
-    SERVICE_DIR: "backend-api"
-  <<: *kaniko_build
+# build:backend-api:
+#   variables:
+#     SERVICE_NAME: "backend-api"
+#     SERVICE_DIR: "backend-api"
+#   <<: *kaniko_build
 
-build:frontend:
-  variables:
-    SERVICE_NAME: "frontend"
-    SERVICE_DIR: "frontend"
-  <<: *kaniko_build
+# build:frontend:
+#   variables:
+#     SERVICE_NAME: "frontend"
+#     SERVICE_DIR: "frontend"
+#   <<: *kaniko_build
 
-# -------------------------------
-# 🚀 DEPLOYMENT
-# -------------------------------
+# # -------------------------------
+# # 🚀 DEPLOYMENT
+# # -------------------------------
 
-deploy:
-  stage: deploy
-  image: bitnami/kubectl:latest
-  only:
-    - main
-    - Stock-watch-v2
+# deploy:
+#   stage: deploy
+#   image: bitnami/kubectl:latest
+#   only:
+#     - main
+#     - Stock-watch-v2
+#   script:
+#     - echo "Deploying images to Kubernetes..."
+
+#     - kubectl set image deployment/stock-generator stock-generator=$REGISTRY/$IMAGE_NAME/stock-generator:$CI_COMMIT_SHA -n cloud-stock-watcher
+#     - kubectl set image deployment/alert-engine alert-engine=$REGISTRY/$IMAGE_NAME/alert-engine:$CI_COMMIT_SHA -n cloud-stock-watcher
+#     - kubectl set image deployment/backend-api backend-api=$REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA -n cloud-stock-watcher
+#     - kubectl set image deployment/frontend frontend=$REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA -n cloud-stock-watcher
+
+#     - kubectl rollout status deployment/stock-generator -n cloud-stock-watcher
+#     - kubectl rollout status deployment/alert-engine -n cloud-stock-watcher
+#     - kubectl rollout status deployment/backend-api -n cloud-stock-watcher
+#     - kubectl rollout status deployment/frontend -n cloud-stock-watcher
+test-runner:
+  stage: test
+  image: ubuntu:22.04
   script:
-    - echo "Deploying images to Kubernetes..."
-
-    - kubectl set image deployment/stock-generator stock-generator=$REGISTRY/$IMAGE_NAME/stock-generator:$CI_COMMIT_SHA -n cloud-stock-watcher
-    - kubectl set image deployment/alert-engine alert-engine=$REGISTRY/$IMAGE_NAME/alert-engine:$CI_COMMIT_SHA -n cloud-stock-watcher
-    - kubectl set image deployment/backend-api backend-api=$REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA -n cloud-stock-watcher
-    - kubectl set image deployment/frontend frontend=$REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA -n cloud-stock-watcher
-
-    - kubectl rollout status deployment/stock-generator -n cloud-stock-watcher
-    - kubectl rollout status deployment/alert-engine -n cloud-stock-watcher
-    - kubectl rollout status deployment/backend-api -n cloud-stock-watcher
-    - kubectl rollout status deployment/frontend -n cloud-stock-watcher
+    - echo "Runner works!"
