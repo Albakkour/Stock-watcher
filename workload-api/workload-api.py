@@ -1,7 +1,17 @@
-
 #!/usr/bin/env python3
+"""
+workload-api.py with a Modern React UI at /ui
+
+Endpoints:
+  GET  /ui           -> control page (React + Tailwind)
+  GET  /health
+  POST /start
+  POST /stop
+  POST /set_rps      -> JSON {"rps": number}
+  GET  /stats
+"""
 from flask import Flask, request, jsonify, Response
-import threading, time, random, requests, collections, os, html
+import threading, time, random, requests, collections, os
 
 # Config
 BASE_URL = os.environ.get("WORKLOAD_BASE_URL", "http://129.192.82.232:30081")
@@ -113,100 +123,181 @@ def stats():
 def health():
     return jsonify({"ok": True})
 
-# ---------------- Simple Web UI ----------------
+# ---------------- Modern React UI ----------------
 
 _UI_HTML = """
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <title>Workload Controller</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 1rem; }
-    .row { margin-bottom: 0.5rem; }
-    label { display:inline-block; width: 90px; }
-    input[type=number] { width: 120px; }
-    button { margin-left: 0.5rem; }
-    pre { background:#f6f8fa; padding:10px; border-radius:6px; }
-  </style>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workload Controller</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        body { background-color: #0f172a; color: #e2e8f0; }
+        .card { background-color: #1e293b; border-radius: 0.75rem; border: 1px solid #334155; }
+        .btn { transition: all 0.2s; }
+        .btn:active { transform: scale(0.95); }
+    </style>
 </head>
-<body>
-  <h2>Workload Controller</h2>
+<body class="antialiased min-h-screen flex flex-col items-center py-10">
 
-  <div class="row">
-    <label>Base URL</label>
-    <span id="baseUrl"></span>
-  </div>
+    <div id="root" class="w-full max-w-4xl px-4"></div>
 
-  <div class="row">
-    <label>RPS</label>
-    <input id="rps" type="number" value="1" step="0.5" min="0"/>
-    <button id="btnSet">Set RPS</button>
-  </div>
+    <script type="text/babel">
+        const { useState, useEffect } = React;
 
-  <div class="row">
-    <button id="btnStart">Start</button>
-    <button id="btnStop">Stop</button>
-  </div>
+        const App = () => {
+            const [stats, setStats] = useState({
+                rps: 1,
+                running: false,
+                success: 0,
+                fail: 0,
+                avg_latency_sec: null,
+                last_error: null
+            });
+            const [rpsInput, setRpsInput] = useState(1);
+            const [baseUrl, setBaseUrl] = useState("");
 
-  <div class="row">
-    <label>Running</label>
-    <span id="running">false</span>
-  </div>
+            useEffect(() => {
+                setBaseUrl(window.location.origin);
+                fetchStats();
+                const interval = setInterval(fetchStats, 1000);
+                return () => clearInterval(interval);
+            }, []);
 
-  <h3>Stats</h3>
-  <div class="row">
-    <label>Success</label><span id="success">0</span>
-  </div>
-  <div class="row">
-    <label>Fail</label><span id="fail">0</span>
-  </div>
-  <div class="row">
-    <label>Avg latency</label><span id="avg">N/A</span>
-  </div>
-  <div class="row">
-    <label>Last error</label><pre id="err">-</pre>
-  </div>
+            // Sync input with stats when stats load for the first time
+            useEffect(() => {
+                // simple check to update input if it hasn't been touched much
+                // or just to init it.
+                if (Math.abs(stats.rps - rpsInput) > 0.1) {
+                   // Optional: keep them synced or let user drift. 
+                   // Let's rely on manual set.
+                }
+            }, [stats.rps]);
 
-  <script>
-    const base = window.location.origin; // same-origin
-    document.getElementById('baseUrl').innerText = base;
+            const fetchStats = async () => {
+                try {
+                    const res = await fetch('/stats');
+                    const data = await res.json();
+                    setStats(data);
+                } catch (e) {
+                    console.error(e);
+                }
+            };
 
-    async function fetchStats(){
-      try{
-        const res = await fetch(base + '/stats');
-        const j = await res.json();
-        document.getElementById('running').innerText = j.running;
-        document.getElementById('success').innerText = j.success;
-        document.getElementById('fail').innerText = j.fail;
-        document.getElementById('avg').innerText = j.avg_latency_sec !== null ? j.avg_latency_sec.toFixed(3) + 's' : 'N/A';
-        document.getElementById('err').innerText = j.last_error || '-';
-        document.getElementById('rps').value = j.rps;
-      }catch(e){
-        console.error('stats error', e);
-      }
-    }
+            const handleSetRps = async () => {
+                await fetch('/set_rps', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ rps: parseFloat(rpsInput) })
+                });
+                fetchStats();
+            };
 
-    document.getElementById('btnSet').addEventListener('click', async ()=>{
-      const v = Number(document.getElementById('rps').value);
-      await fetch(base + '/set_rps', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({rps: v})});
-      await fetchStats();
-    });
+            const toggleRun = async () => {
+                const endpoint = stats.running ? '/stop' : '/start';
+                await fetch(endpoint, { method: 'POST' });
+                fetchStats();
+            };
 
-    document.getElementById('btnStart').addEventListener('click', async ()=>{
-      await fetch(base + '/start', {method:'POST'});
-      await fetchStats();
-    });
+            const formatLatency = (val) => {
+                if (val === null || val === undefined) return "N/A";
+                // Convert to ms if < 1s, else keep s
+                if (val < 1) return (val * 1000).toFixed(1) + " ms";
+                return val.toFixed(3) + " s";
+            };
 
-    document.getElementById('btnStop').addEventListener('click', async ()=>{
-      await fetch(base + '/stop', {method:'POST'});
-      await fetchStats();
-    });
+            return (
+                <div className="space-y-6">
+                    {/* Header */}
+                    <div className="flex justify-between items-center pb-4 border-b border-gray-700">
+                        <div>
+                            <h1 className="text-3xl font-bold text-white tracking-tight">Cloud Workload Gen</h1>
+                            <p className="text-gray-400 text-sm mt-1 font-mono">{baseUrl}</p>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                            <span className={`h-3 w-3 rounded-full ${stats.running ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
+                            <span className="font-semibold uppercase text-sm tracking-wider">
+                                {stats.running ? 'Running' : 'Stopped'}
+                            </span>
+                        </div>
+                    </div>
 
-    // auto-refresh stats every 1s
-    setInterval(fetchStats, 1000);
-    fetchStats();
-  </script>
+                    {/* Controls */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        
+                        {/* RPS Control */}
+                        <div className="card p-6 flex flex-col justify-between">
+                            <label className="text-gray-400 text-sm font-semibold uppercase mb-2">Target Load (RPS)</label>
+                            <div className="flex space-x-2">
+                                <input 
+                                    type="number" 
+                                    min="0" 
+                                    step="0.1"
+                                    value={rpsInput}
+                                    onChange={(e) => setRpsInput(e.target.value)}
+                                    className="flex-1 bg-gray-800 border border-gray-600 text-white px-4 py-2 rounded focus:outline-none focus:border-blue-500 font-mono text-lg"
+                                />
+                                <button 
+                                    onClick={handleSetRps}
+                                    className="btn bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded"
+                                >
+                                    Set
+                                </button>
+                            </div>
+                            <div className="mt-2 text-xs text-gray-500">Current Config: {stats.rps} RPS</div>
+                        </div>
+
+                        {/* Power Button */}
+                        <div className="card p-6 flex items-center justify-center">
+                            <button 
+                                onClick={toggleRun}
+                                className={`btn w-full h-full py-4 text-xl font-bold rounded shadow-lg uppercase tracking-widest ${
+                                    stats.running 
+                                    ? 'bg-red-600 hover:bg-red-500 text-white border border-red-700' 
+                                    : 'bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-700'
+                                }`}
+                            >
+                                {stats.running ? 'Stop Generator' : 'Start Generator'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="card p-6 text-center">
+                            <div className="text-gray-400 text-xs uppercase font-bold tracking-wider mb-1">Successful Requests</div>
+                            <div className="text-4xl font-mono text-emerald-400">{stats.success}</div>
+                        </div>
+                        <div className="card p-6 text-center">
+                            <div className="text-gray-400 text-xs uppercase font-bold tracking-wider mb-1">Failed Requests</div>
+                            <div className="text-4xl font-mono text-red-400">{stats.fail}</div>
+                        </div>
+                        <div className="card p-6 text-center">
+                            <div className="text-gray-400 text-xs uppercase font-bold tracking-wider mb-1">Avg Latency</div>
+                            <div className="text-4xl font-mono text-yellow-400">{formatLatency(stats.avg_latency_sec)}</div>
+                        </div>
+                    </div>
+
+                    {/* Error Log */}
+                    <div className="card p-6">
+                        <div className="text-gray-400 text-xs uppercase font-bold tracking-wider mb-3">Last System Error</div>
+                        <div className="bg-black rounded p-4 font-mono text-sm text-red-300 min-h-[80px] overflow-auto border border-gray-800">
+                            {stats.last_error ? `> ${stats.last_error}` : '> No errors logged.'}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
 </body>
 </html>
 """
@@ -218,4 +309,3 @@ def ui():
 if __name__ == "__main__":
     print("Workload API base:", BASE_URL)
     app.run(host="0.0.0.0", port=PORT)
-PY

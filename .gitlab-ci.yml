@@ -60,9 +60,13 @@ deploy:
   only:
     - main
   script:
-    - kubectl config use-context <your-cluster-context>
+    # Update deployments with new images
     - kubectl set image deployment/stock-generator stock-generator=$REGISTRY/$IMAGE_NAME/stock-generator:$CI_COMMIT_SHA -n cloud-stock-watcher
     - kubectl set image deployment/alert-engine alert-engine=$REGISTRY/$IMAGE_NAME/alert-engine:$CI_COMMIT_SHA -n cloud-stock-watcher
     - kubectl set image deployment/backend-api backend-api=$REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA -n cloud-stock-watcher
     - kubectl set image deployment/frontend frontend=$REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA -n cloud-stock-watcher
+    # Wait for rollout to complete
     - kubectl rollout status deployment/stock-generator -n cloud-stock-watcher
+    - kubectl rollout status deployment/alert-engine -n cloud-stock-watcher
+    - kubectl rollout status deployment/backend-api -n cloud-stock-watcher
+    - kubectl rollout status deployment/frontend -n cloud-stock-watcher
