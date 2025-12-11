@@ -1,0 +1,828 @@
+# import asyncio
+# import os
+# import random
+# import collections
+# import logging
+# from typing import List, Optional, Deque
+# from contextlib import asynccontextmanager
+
+# from fastapi import FastAPI, HTTPException, Request
+# from fastapi.responses import HTMLResponse
+# from fastapi.middleware.cors import CORSMiddleware
+# from pydantic import BaseModel, Field
+# import httpx
+
+# # ---------------- Configuration ----------------
+# BASE_URL = os.environ.get("WORKLOAD_BASE_URL", "http://129.192.82.232:30081")
+# DEFAULT_RPS = float(os.environ.get("WORKLOAD_DEFAULT_RPS", "1.0"))
+# PORT = int(os.environ.get("WORKLOAD_API_PORT", "9000"))
+# K8S_NAMESPACE = os.environ.get("K8S_NAMESPACE", "cloud-stock-watcher")
+
+# logging.basicConfig(level=logging.INFO)
+# logger = logging.getLogger("workload")
+
+# # ---------------- State Management ----------------
+# class GlobalState:
+#     def __init__(self):
+#         self.rps: float = DEFAULT_RPS
+#         self.running: bool = False
+#         self.success: int = 0
+#         self.fail: int = 0
+#         self.latencies: Deque[float] = collections.deque(maxlen=1000)
+#         self.last_error: Optional[str] = None
+#         # Async lock to protect state updates if needed (though Python async is single-threaded)
+#         self.lock = asyncio.Lock()
+
+# state = GlobalState()
+
+# # ---------------- Pydantic Models ----------------
+# class SetRPSRequest(BaseModel):
+#     rps: float = Field(..., ge=0, description="Requests per second")
+
+# class StatsResponse(BaseModel):
+#     rps: float
+#     running: bool
+#     success: int
+#     fail: int
+#     avg_latency_sec: Optional[float]
+#     last_error: Optional[str]
+
+# # ---------------- Background Worker ----------------
+# async def traffic_generator():
+#     """Async background task to generate load."""
+#     logger.info(f"Worker started. Target: {BASE_URL}")
+#     async with httpx.AsyncClient(timeout=5.0) as client:
+#         while True:
+#             # Check state
+#             if not state.running:
+#                 await asyncio.sleep(0.2)
+#                 continue
+            
+#             current_rps = state.rps
+#             if current_rps <= 0:
+#                 await asyncio.sleep(0.2)
+#                 continue
+
+#             interval = 1.0 / current_rps
+#             start_time = asyncio.get_running_loop().time()
+            
+#             try:
+#                 choice = random.random()
+#                 if choice < 0.5:
+#                     resp = await client.get(f"{BASE_URL}/api/stocks")
+#                 elif choice < 0.8:
+#                     resp = await client.get(f"{BASE_URL}/api/notifications")
+#                 else:
+#                     body = {
+#                         "symbol": random.choice(["TSLA", "AAPL", "MSFT"]),
+#                         "direction": random.choice(["above", "below"]),
+#                         "threshold": round(random.uniform(150, 250), 2),
+#                     }
+#                     resp = await client.post(f"{BASE_URL}/api/alerts", json=body)
+                
+#                 resp.raise_for_status()
+
+#                 # Record success
+#                 elapsed = asyncio.get_running_loop().time() - start_time
+#                 state.success += 1
+#                 state.latencies.append(elapsed)
+
+#             except Exception as e:
+#                 # Record failure
+#                 state.fail += 1
+#                 state.last_error = str(e)
+            
+#             # Simple sleep to maintain RPS
+#             await asyncio.sleep(interval)
+
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     # Startup: Start the background worker
+#     task = asyncio.create_task(traffic_generator())
+#     yield
+#     # Shutdown: Cancel worker (optional cleanup)
+#     task.cancel()
+
+# # ---------------- FastAPI App ----------------
+# app = FastAPI(title="Modern Workload Generator", lifespan=lifespan)
+
+# # Allow CORS for easier UI development if hosted separately
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=["*"],
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
+
+# # ---------------- API Endpoints ----------------
+
+# @app.get("/health")
+# async def health():
+#     return {"ok": True}
+
+# @app.post("/set_rps")
+# async def set_rps(payload: SetRPSRequest):
+#     state.rps = payload.rps
+#     logger.info(f"RPS updated to {state.rps}")
+#     return {"rps": state.rps}
+
+# @app.post("/start")
+# async def start_load():
+#     state.running = True
+#     logger.info("Load generator started")
+#     return {"status": "started", "rps": state.rps}
+
+# @app.post("/stop")
+# async def stop_load():
+#     state.running = False
+#     logger.info("Load generator stopped")
+#     return {"status": "stopped"}
+
+# @app.get("/stats", response_model=StatsResponse)
+# async def get_stats():
+#     # Calculate average on the fly
+#     lat_list = list(state.latencies)
+#     avg_latency = sum(lat_list) / len(lat_list) if lat_list else None
+    
+#     return StatsResponse(
+#         rps=state.rps,
+#         running=state.running,
+#         success=state.success,
+#         fail=state.fail,
+#         avg_latency_sec=avg_latency,
+#         last_error=state.last_error
+#     )
+
+# # ---------------- Metrics (Kubectl) ----------------
+# def parse_kubectl_top_output(text: str):
+#     """Parse `kubectl top pod --no-headers`."""
+#     lines = [l.strip() for l in text.splitlines() if l.strip()]
+#     pods = []
+#     for line in lines:
+#         parts = line.split()
+#         if len(parts) < 3:
+#             continue
+#         name, cpu_raw, mem_raw = parts[0], parts[1], parts[2]
+        
+#         # Convert CPU to millicores
+#         cpu_m = 0
+#         try:
+#             if cpu_raw.endswith('m'):
+#                 cpu_m = int(cpu_raw[:-1])
+#             else:
+#                 cpu_m = int(float(cpu_raw) * 1000)
+#         except ValueError:
+#             cpu_m = 0 # Fallback
+            
+#         pods.append({
+#             "name": name, 
+#             "cpu_m": cpu_m, 
+#             "cpu_raw": cpu_raw, 
+#             "mem_raw": mem_raw
+#         })
+#     return pods
+
+# @app.get("/metrics")
+# async def metrics():
+#     """Runs kubectl asynchronously to avoid blocking the event loop."""
+#     cmd = f"kubectl top pod -n {K8S_NAMESPACE} --no-headers"
+    
+#     try:
+#         process = await asyncio.create_subprocess_shell(
+#             cmd,
+#             stdout=asyncio.subprocess.PIPE,
+#             stderr=asyncio.subprocess.PIPE
+#         )
+#         stdout, stderr = await process.communicate()
+        
+#         if process.returncode != 0:
+#             err_msg = stderr.decode().strip()
+#             logger.error(f"Kubectl failed: {err_msg}")
+#             return {"error": "kubectl top failed", "detail": err_msg}
+            
+#         pods = parse_kubectl_top_output(stdout.decode())
+#         return {"namespace": K8S_NAMESPACE, "pods": pods}
+        
+#     except Exception as e:
+#         logger.error(f"Metrics error: {e}")
+#         return {"error": "exception", "detail": str(e)}
+
+# # ---------------- UI Endpoint ----------------
+# _UI_HTML = """
+# <!doctype html>
+# <html>
+# <head>
+#   <meta charset="utf-8"/>
+#   <title>Modern Workload Controller</title>
+#   <style>
+#     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; background: #f4f7f6; padding: 2rem; }
+#     .container { max-width: 1000px; margin: 0 auto; display: flex; gap: 2rem; align-items: flex-start; }
+#     .card { background: #fff; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); flex: 1; }
+#     .control-panel { flex: 0 0 350px; }
+#     h2 { margin-top: 0; color: #333; }
+#     h4 { margin-bottom: 0.5rem; color: #555; border-bottom: 2px solid #eee; padding-bottom: 5px; }
+#     .row { margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; }
+#     label { font-weight: 600; color: #666; font-size: 0.9rem; }
+#     input[type=number] { padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 80px; }
+#     button { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: background 0.2s; }
+#     button#btnStart { background: #10b981; color: white; }
+#     button#btnStop { background: #ef4444; color: white; }
+#     button#btnSet { background: #3b82f6; color: white; }
+#     button:hover { opacity: 0.9; }
+#     pre { background: #1e293b; color: #f8fafc; padding: 10px; border-radius: 6px; white-space: pre-wrap; font-size: 0.8rem; min-height: 40px;}
+#     .stat-val { font-weight: bold; color: #333; }
+#   </style>
+#   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+# </head>
+# <body>
+#   <div class="container">
+#     <div class="card control-panel">
+#       <h2>Controller</h2>
+#       <div class="row"><label>Target</label><small id="baseUrl">...</small></div>
+      
+#       <div class="row">
+#         <label>RPS</label>
+#         <div>
+#             <input id="rps" type="number" value="1" step="0.5" min="0"/>
+#             <button id="btnSet">Set</button>
+#         </div>
+#       </div>
+      
+#       <div class="row" style="justify-content: flex-start; gap: 10px;">
+#         <button id="btnStart">Start Load</button>
+#         <button id="btnStop">Stop Load</button>
+#       </div>
+      
+#       <div class="row">
+#         <label>Status</label>
+#         <span id="running" class="stat-val">False</span>
+#       </div>
+
+#       <h4>Statistics</h4>
+#       <div class="row"><label>Success</label><span id="success" style="color:green">0</span></div>
+#       <div class="row"><label>Failures</label><span id="fail" style="color:red">0</span></div>
+#       <div class="row"><label>Avg Latency</label><span id="avg">N/A</span></div>
+      
+#       <div style="margin-top:10px">
+#         <label>Last Error</label>
+#         <pre id="err">-</pre>
+#       </div>
+#     </div>
+
+#     <div class="card">
+#       <h2>Pod CPU Usage</h2>
+#       <canvas id="cpuChart" height="200"></canvas>
+#       <div style="margin-top:15px; text-align:right; color:#888; font-size:0.8rem;">
+#         Namespace: <b id="ns">...</b> | 1000m = 1 Core
+#       </div>
+#     </div>
+#   </div>
+
+#   <script>
+#     const base = window.location.origin;
+#     document.getElementById('baseUrl').innerText = base;
+
+#     async function api(path, method='GET', body=null) {
+#         const opts = { method, headers: {'Content-Type': 'application/json'} };
+#         if (body) opts.body = JSON.stringify(body);
+#         const res = await fetch(base + path, opts);
+#         return res.json();
+#     }
+
+#     async function refreshStats(){
+#       try{
+#         const data = await api('/stats');
+#         document.getElementById('running').innerText = data.running ? "RUNNING" : "STOPPED";
+#         document.getElementById('success').innerText = data.success;
+#         document.getElementById('fail').innerText = data.fail;
+#         document.getElementById('avg').innerText = data.avg_latency_sec 
+#             ? data.avg_latency_sec.toFixed(3) + 's' : 'N/A';
+#         document.getElementById('err').innerText = data.last_error || '-';
+#         // Only update input if not focused to avoid annoying jumps
+#         if (document.activeElement.id !== 'rps') {
+#             document.getElementById('rps').value = data.rps;
+#         }
+#       } catch(e) { console.error(e); }
+#     }
+
+#     // Buttons
+#     document.getElementById('btnSet').onclick = () => api('/set_rps', 'POST', {rps: Number(document.getElementById('rps').value)}).then(refreshStats);
+#     document.getElementById('btnStart').onclick = () => api('/start', 'POST').then(refreshStats);
+#     document.getElementById('btnStop').onclick = () => api('/stop', 'POST').then(refreshStats);
+
+#     // Chart.js
+#     const ctx = document.getElementById('cpuChart').getContext('2d');
+#     let cpuChart = new Chart(ctx, {
+#       type: 'bar',
+#       data: {
+#         labels: [],
+#         datasets: [{
+#           label: 'CPU (millicores)',
+#           data: [],
+#           backgroundColor: 'rgba(59, 130, 246, 0.7)',
+#           borderRadius: 5
+#         }]
+#       },
+#       options: {
+#         responsive: true,
+#         animation: false,
+#         scales: { y: { beginAtZero: true } }
+#       }
+#     });
+
+#     async function refreshMetrics(){
+#       try{
+#         const data = await api('/metrics');
+#         if(data.error) return; // Silent fail on kubectl error
+        
+#         document.getElementById('ns').innerText = data.namespace;
+#         cpuChart.data.labels = data.pods.map(p => p.name);
+#         cpuChart.data.datasets[0].data = data.pods.map(p => p.cpu_m || 0);
+#         cpuChart.update();
+#       } catch(e) { console.error(e); }
+#     }
+
+#     setInterval(refreshStats, 1000);
+#     setInterval(refreshMetrics, 3000); // Poll metrics less frequently
+#     refreshStats();
+#     refreshMetrics();
+#   </script>
+# </body>
+# </html>
+# """
+
+# @app.get("/ui", response_class=HTMLResponse)
+# async def ui():
+#     return _UI_HTML
+
+# if __name__ == "__main__":
+#     import uvicorn
+#     print(f"Starting Modern Workload Generator on port {PORT}")
+#     uvicorn.run(app, host="0.0.0.0", port=PORT)
+
+cd ~/cloud-stock-watcher/workload-api
+cp workload-api.py workload-api.py.bak
+
+cat > workload-api.py <<'PY'
+#!/usr/bin/env python3
+"""
+workload-api.py with UI and CPU metrics graph.
+
+Endpoints:
+  GET  /ui
+  GET  /health
+  POST /start
+  POST /stop
+  POST /set_rps      JSON {"rps": <number>}
+  GET  /stats
+  GET  /metrics      -> JSON with kubectl top pod values for namespace cloud-stock-watcher
+"""
+from flask import Flask, request, jsonify, Response
+import threading, time, random, requests, collections, os, subprocess, json
+
+# Configuration
+BASE_URL = os.environ.get("WORKLOAD_BASE_URL", "http://129.192.82.232:30081")
+DEFAULT_RPS = float(os.environ.get("WORKLOAD_DEFAULT_RPS", "1.0"))
+PORT = int(os.environ.get("WORKLOAD_API_PORT", "9000"))
+K8S_NAMESPACE = os.environ.get("K8S_NAMESPACE", "cloud-stock-watcher")
+
+app = Flask(__name__)
+
+# Shared state
+state = {
+    "rps": DEFAULT_RPS,
+    "running": False,
+    "success": 0,
+    "fail": 0,
+    "latencies": collections.deque(maxlen=1000),
+    "last_error": None,
+}
+
+lock = threading.Lock()
+
+def worker_loop():
+    while True:
+        with lock:
+            running = state["running"]
+            rps = state["rps"]
+        if not running:
+            time.sleep(0.2)
+            continue
+
+        interval = 1.0 / max(rps, 0.0001)
+        start = time.time()
+        try:
+            choice = random.random()
+            if choice < 0.5:
+                resp = requests.get(f"{BASE_URL}/api/stocks", timeout=5)
+                resp.raise_for_status()
+            elif choice < 0.8:
+                resp = requests.get(f"{BASE_URL}/api/notifications", timeout=5)
+                resp.raise_for_status()
+            else:
+                body = {
+                    "symbol": random.choice(["TSLA", "AAPL", "MSFT"]),
+                    "direction": random.choice(["above", "below"]),
+                    "threshold": round(random.uniform(150, 250), 2),
+                }
+                resp = requests.post(f"{BASE_URL}/api/alerts", json=body, timeout=5)
+                resp.raise_for_status()
+
+            latency = time.time() - start
+            with lock:
+                state["success"] += 1
+                state["latencies"].append(latency)
+        except Exception as e:
+            with lock:
+                state["fail"] += 1
+                state["last_error"] = str(e)
+
+        time.sleep(interval)
+
+# start background worker thread
+t = threading.Thread(target=worker_loop, daemon=True)
+t.start()
+
+# ---------------- API endpoints ----------------
+
+@app.route("/set_rps", methods=["POST"])
+def set_rps():
+    payload = request.get_json(force=True, silent=True) or {}
+    try:
+        new_rps = float(payload.get("rps", DEFAULT_RPS))
+        if new_rps < 0:
+            raise ValueError("rps must be >= 0")
+    except Exception as e:
+        return jsonify({"error": "invalid rps", "detail": str(e)}), 400
+    with lock:
+        state["rps"] = new_rps
+    return jsonify({"rps": state["rps"]})
+
+@app.route("/start", methods=["POST"])
+def start_load():
+    with lock:
+        state["running"] = True
+    return jsonify({"status": "started", "rps": state["rps"]})
+
+@app.route("/stop", methods=["POST"])
+def stop_load():
+    with lock:
+        state["running"] = False
+    return jsonify({"status": "stopped"})
+
+@app.route("/stats", methods=["GET"])
+def stats():
+    with lock:
+        lat_list = list(state["latencies"])
+        avg_latency = sum(lat_list) / len(lat_list) if lat_list else None
+        last_error = state["last_error"]
+        out = {
+            "rps": state["rps"],
+            "running": state["running"],
+            "success": state["success"],
+            "fail": state["fail"],
+            "avg_latency_sec": avg_latency,
+            "last_error": last_error
+        }
+    return jsonify(out)
+
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({"ok": True})
+
+# ---------------- kubectl-based metrics endpoint ----------------
+def parse_kubectl_top_output(text):
+    """Parse `kubectl top pod -n <ns> --no-headers` output into list of dicts."""
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    pods = []
+    for line in lines:
+        # expected columns: NAME CPU(cores) MEMORY(bytes)
+        parts = line.split()
+        if len(parts) < 3:
+            continue
+        name = parts[0]
+        cpu_raw = parts[1]
+        mem_raw = parts[2]
+        # convert cpu to millicores:
+        try:
+            if cpu_raw.endswith('m'):
+                cpu_m = int(cpu_raw[:-1])
+            else:
+                # CPU is whole cores like "1" -> 1000m
+                cpu_m = int(float(cpu_raw) * 1000)
+        except Exception:
+            cpu_m = None
+        pods.append({"name": name, "cpu_m": cpu_m, "cpu_raw": cpu_raw, "mem_raw": mem_raw})
+    return pods
+
+@app.route("/metrics", methods=["GET"])
+def metrics():
+    # use kubectl to gather metrics; requires kubectl + kubeconfig available to this user
+    try:
+        cmd = ["kubectl", "top", "pod", "-n", K8S_NAMESPACE, "--no-headers"]
+        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=5)
+        if proc.returncode != 0:
+            return jsonify({"error": "kubectl top failed", "detail": proc.stderr.strip()}), 500
+        pods = parse_kubectl_top_output(proc.stdout)
+        return jsonify({"namespace": K8S_NAMESPACE, "pods": pods})
+    except Exception as e:
+        return jsonify({"error": "exception", "detail": str(e)}), 500
+
+# ---------------- Modern React UI with Chart.js ----------------
+_UI_HTML = """
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workload Controller & Kubernetes Monitor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        body { background-color: #0f172a; color: #e2e8f0; }
+        .card { background-color: #1e293b; border-radius: 0.75rem; border: 1px solid #334155; }
+        .btn { transition: all 0.2s; }
+        .btn:active { transform: scale(0.95); }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col items-center py-10">
+
+    <div id="root" class="w-full max-w-6xl px-4"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const StatCard = ({ title, value, unit, colorClass = "text-white" }) => (
+            <div className="card p-4 text-center">
+                <div className="text-gray-400 text-xs uppercase font-bold tracking-wider mb-1">{title}</div>
+                <div className={`text-3xl font-mono ${colorClass}`}>{value} {unit}</div>
+            </div>
+        );
+
+        const MetricsChart = ({ initialNamespace }) => {
+            const chartRef = useRef(null);
+            const chartInstance = useRef(null);
+            const [pods, setPods] = useState([]);
+            const [metricsError, setMetricsError] = useState(null);
+
+            useEffect(() => {
+                const ctx = chartRef.current.getContext('2d');
+                chartInstance.current = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'CPU Usage (millicores)',
+                            data: [],
+                            backgroundColor: 'rgba(52, 211, 153, 0.8)', // Emerald 400
+                            borderColor: 'rgba(52, 211, 153, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: { display: true, text: 'CPU (m)', color: '#94a3b8' },
+                                ticks: { color: '#94a3b8' },
+                                grid: { color: '#334155' }
+                            },
+                            x: {
+                                ticks: { color: '#94a3b8' },
+                                grid: { display: false }
+                            }
+                        },
+                        plugins: { legend: { display: false } },
+                        animation: false // Turn off animation for continuous data stream
+                    }
+                });
+
+                const fetchMetrics = async () => {
+                    try {
+                        const res = await fetch('/metrics');
+                        const j = await res.json();
+                        
+                        if (j.error) {
+                            setMetricsError(j.detail || "An unknown error occurred fetching metrics.");
+                            setPods([]);
+                            // Clear chart on error
+                            chartInstance.current.data.labels = [];
+                            chartInstance.current.data.datasets[0].data = [];
+                            chartInstance.current.update();
+                            return;
+                        }
+                        setMetricsError(null);
+                        setPods(j.pods);
+
+                        const names = j.pods.map(p => p.name);
+                        const cpus = j.pods.map(p => p.cpu_m === null ? 0 : p.cpu_m);
+                        
+                        chartInstance.current.data.labels = names;
+                        chartInstance.current.data.datasets[0].data = cpus;
+                        chartInstance.current.update();
+
+                    } catch (e) {
+                        setMetricsError("Network error fetching metrics API.");
+                        console.error('metrics fetch error', e);
+                    }
+                };
+
+                // Fetch initially and then every 2s
+                fetchMetrics();
+                const interval = setInterval(fetchMetrics, 2000);
+
+                return () => {
+                    clearInterval(interval);
+                    if (chartInstance.current) {
+                        chartInstance.current.destroy();
+                    }
+                };
+            }, []); // Empty dependency array means this runs once on mount
+
+            return (
+                <div className="card p-6 h-[400px] flex flex-col">
+                    <h3 className="text-xl font-semibold mb-2 text-white">Kubernetes Pod CPU Usage</h3>
+                    <p className="text-sm text-gray-400 mb-4">Namespace: <span className="font-mono text-blue-300">{initialNamespace}</span> (Refreshes every 2s)</p>
+                    {metricsError && (
+                        <div className="bg-red-900 border border-red-700 text-red-300 p-3 rounded mb-4 font-mono text-sm">
+                            Metrics Error: {metricsError}
+                        </div>
+                    )}
+                    <div className="flex-grow relative">
+                        <canvas ref={chartRef}></canvas>
+                    </div>
+                </div>
+            );
+        };
+        
+        const App = ({ k8sNamespace }) => {
+            const [stats, setStats] = useState({
+                rps: 1,
+                running: false,
+                success: 0,
+                fail: 0,
+                avg_latency_sec: null,
+                last_error: null
+            });
+            const [rpsInput, setRpsInput] = useState(1);
+            const [baseUrl, setBaseUrl] = useState("");
+
+            useEffect(() => {
+                setBaseUrl(window.location.origin);
+                fetchStats();
+                const interval = setInterval(fetchStats, 1000);
+                return () => clearInterval(interval);
+            }, []);
+
+            useEffect(() => {
+                setRpsInput(stats.rps);
+            }, [stats.rps]);
+
+
+            const fetchStats = async () => {
+                try {
+                    const res = await fetch('/stats');
+                    const data = await res.json();
+                    setStats(data);
+                } catch (e) {
+                    console.error(e);
+                }
+            };
+
+            const handleSetRps = async () => {
+                const newRps = parseFloat(rpsInput);
+                if (isNaN(newRps) || newRps < 0) {
+                    alert("RPS must be a non-negative number.");
+                    return;
+                }
+                await fetch('/set_rps', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ rps: newRps })
+                });
+                fetchStats();
+            };
+
+            const toggleRun = async () => {
+                const endpoint = stats.running ? '/stop' : '/start';
+                await fetch(endpoint, { method: 'POST' });
+                fetchStats();
+            };
+
+            const formatLatency = (val) => {
+                if (val === null || val === undefined) return "N/A";
+                if (val < 1) return (val * 1000).toFixed(1) + " ms";
+                return val.toFixed(3) + " s";
+            };
+
+            return (
+                <div className="space-y-8">
+                    {/* Header */}
+                    <div className="flex justify-between items-center pb-4 border-b border-gray-700">
+                        <div>
+                            <h1 className="text-3xl font-bold text-white tracking-tight">Workload Control Dashboard</h1>
+                            <p className="text-gray-400 text-sm mt-1 font-mono">Target: <span className="text-blue-400">{baseUrl}</span></p>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                            <span className={`h-4 w-4 rounded-full ${stats.running ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
+                            <span className="font-semibold uppercase text-sm tracking-wider">
+                                {stats.running ? 'Load Active' : 'Load Stopped'}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        {/* Control Panel (Left Column) */}
+                        <div className="lg:col-span-1 space-y-6">
+                            <div className="card p-6 space-y-4">
+                                <h3 className="text-xl font-semibold mb-2 text-white">Load Configuration</h3>
+                                <div className="space-y-2">
+                                    <label className="text-gray-400 text-sm font-semibold block">Target RPS</label>
+                                    <div className="flex space-x-2">
+                                        <input 
+                                            type="number" 
+                                            min="0" 
+                                            step="0.1"
+                                            value={rpsInput}
+                                            onChange={(e) => setRpsInput(e.target.value)}
+                                            className="flex-1 bg-gray-800 border border-gray-600 text-white px-4 py-2 rounded focus:outline-none focus:border-blue-500 font-mono text-lg"
+                                        />
+                                        <button 
+                                            onClick={handleSetRps}
+                                            className="btn bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded whitespace-nowrap"
+                                        >
+                                            Set RPS
+                                        </button>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={toggleRun}
+                                    className={`btn w-full py-3 text-lg font-bold rounded shadow-lg uppercase tracking-wider ${
+                                        stats.running 
+                                        ? 'bg-red-600 hover:bg-red-500 text-white border border-red-700' 
+                                        : 'bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-700'
+                                    }`}
+                                >
+                                    {stats.running ? 'Stop Load' : 'Start Load'}
+                                </button>
+                            </div>
+
+                            {/* Stats */}
+                            <div className="space-y-4">
+                                <h3 className="text-xl font-semibold text-white">Performance Metrics</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <StatCard title="Success" value={stats.success} colorClass="text-emerald-400" />
+                                    <StatCard title="Fail" value={stats.fail} colorClass="text-red-400" />
+                                    <StatCard title="Avg Latency" value={formatLatency(stats.avg_latency_sec)} colorClass="text-yellow-400" />
+                                    <StatCard title="Current RPS" value={stats.rps} colorClass="text-blue-400" />
+                                </div>
+                            </div>
+                            
+                            {/* Error Log */}
+                            <div className="card p-4">
+                                <div className="text-gray-400 text-xs uppercase font-bold tracking-wider mb-2">Last Workload Error</div>
+                                <div className="bg-black rounded p-3 font-mono text-sm text-red-300 min-h-[50px] overflow-auto border border-gray-800">
+                                    {stats.last_error ? `> ${stats.last_error}` : '> No errors logged.'}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Chart Panel (Right Column) */}
+                        <div className="lg:col-span-2">
+                            <MetricsChart initialNamespace={k8sNamespace} />
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Note: We need to pass the K8S_NAMESPACE from the Python variable to the React component.
+        // Since we are limited to a static string, we will embed the Python variable here.
+        // **This assumes you are running the script in a context where K8S_NAMESPACE is set.**
+        const K8S_NAMESPACE = "${K8S_NAMESPACE}"; 
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App k8sNamespace={K8S_NAMESPACE} />);
+    </script>
+</body>
+</html>
+"""
+
+@app.route("/ui", methods=["GET"])
+def ui():
+    # Substitute the Python variable K8S_NAMESPACE into the HTML before serving.
+    # This is a common pattern when using static Flask/Python templates with JS.
+    html_content = _UI_HTML.replace('${K8S_NAMESPACE}', K8S_NAMESPACE)
+    return Response(html_content, mimetype="text/html")
+
+if __name__ == "__main__":
+    print(f"Workload API base: {BASE_URL}")
+    print(f"Kubernetes Namespace for metrics: {K8S_NAMESPACE}")
+    app.run(host="0.0.0.0", port=PORT)
+PY

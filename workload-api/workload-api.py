@@ -1,15 +1,4 @@
-#!/usr/bin/env python3
-"""
-workload-api.py with a Modern React UI at /ui
 
-Endpoints:
-  GET  /ui           -> control page (React + Tailwind)
-  GET  /health
-  POST /start
-  POST /stop
-  POST /set_rps      -> JSON {"rps": number}
-  GET  /stats
-"""
 from flask import Flask, request, jsonify, Response
 import threading, time, random, requests, collections, os
 
@@ -309,3 +298,4 @@ def ui():
 if __name__ == "__main__":
     print("Workload API base:", BASE_URL)
     app.run(host="0.0.0.0", port=PORT)
+PY

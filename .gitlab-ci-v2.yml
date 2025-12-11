@@ -1,0 +1,10 @@
+stages:
+  - build
+  - deploy
+
+include:
+  - local: 'k8s/frontend-deployment.yaml'
+  - local: 'k8s/stock-generator-deployment.yaml'
+  - local: 'ci/alert-engine.yml'
+  - local: 'ci/stock-generator.yml'
+  - local: 'ci/deploy.yml'
