@@ -159,10 +159,14 @@
 #     - kubectl rollout status deployment/alert-engine -n cloud-stock-watcher
 #     - kubectl rollout status deployment/backend-api -n cloud-stock-watcher
 #     - kubectl rollout status deployment/frontend -n cloud-stock-watcher
-test-image:
+kaniko-test:
   stage: test
-  image: alpine:latest
+  image:
+    name: registry.gitlab.com/gitlab-org/cluster-integration/kaniko/executor:debug
+    entrypoint: [""]
   script:
-    - echo "Image works!"
-    - uname -a
+    - echo "Testing Kaniko..."
+    - mkdir demo
+    - echo -e "FROM alpine\nRUN echo hello world" > demo/Dockerfile
+    - /kaniko/executor --no-push --context demo --dockerfile demo/Dockerfile
 
