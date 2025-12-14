@@ -180,7 +180,7 @@ variables:
   REGISTRY: "gitlab.control.lth.se:5050"
   IMAGE_NAME: "regler/frtn90/2025/agroup01"
 
-.default_build:
+.default_build: &default_build
   stage: build
   image: docker:24-cli
   only:
