@@ -159,14 +159,71 @@
 #     - kubectl rollout status deployment/alert-engine -n cloud-stock-watcher
 #     - kubectl rollout status deployment/backend-api -n cloud-stock-watcher
 #     - kubectl rollout status deployment/frontend -n cloud-stock-watcher
-kaniko-test:
-  stage: test
-  image:
-    name: registry.gitlab.com/gitlab-org/cluster-integration/kaniko/executor:debug
-    entrypoint: [""]
-  script:
-    - echo "Testing Kaniko..."
-    - mkdir demo
-    - echo -e "FROM alpine\nRUN echo hello world" > demo/Dockerfile
-    - /kaniko/executor --no-push --context demo --dockerfile demo/Dockerfile
+# ---------------------------------------
+# KANIKO TEST JOB Failed
+# kaniko-test:
+#   stage: test
+#   image:
+#     name: registry.gitlab.com/gitlab-org/cluster-integration/kaniko/executor:debug
+#     entrypoint: [""]
+#   script:
+#     - echo "Testing Kaniko..."
+#     - mkdir demo
+#     - echo -e "FROM alpine\nRUN echo hello world" > demo/Dockerfile
+#     - /kaniko/executor --no-push --context demo --dockerfile demo/Dockerfile
 
+stages:
+  - build
+  - deploy
+
+variables:
+  REGISTRY: "gitlab.control.lth.se:5050"
+  IMAGE_NAME: "regler/frtn90/2025/agroup01"
+
+.default_build:
+  stage: build
+  image: docker:24-cli
+  only:
+    - main
+    - Stock-watch-v2
+  script:
+    - docker info
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$REGISTRY"
+    - docker build -t $REGISTRY/$IMAGE_NAME/$SERVICE_NAME:$CI_COMMIT_SHA $SERVICE_DIR
+    - docker push $REGISTRY/$IMAGE_NAME/$SERVICE_NAME:$CI_COMMIT_SHA
+
+build:stock-generator:
+  variables:
+    SERVICE_NAME: stock-generator
+    SERVICE_DIR: stock-generator
+  <<: *default_build
+
+build:alert-engine:
+  variables:
+    SERVICE_NAME: alert-engine
+    SERVICE_DIR: alert-engine
+  <<: *default_build
+
+build:backend-api:
+  variables:
+    SERVICE_NAME: backend-api
+    SERVICE_DIR: backend-api
+  <<: *default_build
+
+build:frontend:
+  variables:
+    SERVICE_NAME: frontend
+    SERVICE_DIR: frontend
+  <<: *default_build
+
+deploy:
+  stage: deploy
+  image: bitnami/kubectl:latest
+  only:
+    - main
+    - Stock-watch-v2
+  script:
+    - kubectl set image deployment/frontend frontend=$REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA -n cloud-stock-watcher
+    - kubectl set image deployment/alert-engine alert-engine=$REGISTRY/$IMAGE_NAME/alert-engine:$CI_COMMIT_SHA -n cloud-stock-watcher
+    - kubectl set image deployment/stock-generator stock-generator=$REGISTRY/$IMAGE_NAME/stock-generator:$CI_COMMIT_SHA -n cloud-stock-watcher
+    - kubectl set image deployment/backend-api backend-api=$REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA -n cloud-stock-watcher
