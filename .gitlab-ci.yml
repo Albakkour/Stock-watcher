@@ -98,74 +98,6 @@
 
 
 
-# stages:
-#   - build
-#   - deploy
-
-# variables:
-#   REGISTRY: "gitlab.control.lth.se:5050"
-#   IMAGE_NAME: "regler/frtn90/2025/agroup01"
-
-# .default_build: &default_build
-#   stage: build
-#   image: docker:latest
-#   tags:
-#     - docker      # <<< IMPORTANT: force docker executor
-#   services:
-#     - name: docker:dind
-#       command: ["--tls=false"]
-#   variables:
-#     DOCKER_HOST: "tcp://docker:2375"
-#     DOCKER_TLS_CERTDIR: ""
-#   only:
-#     - main
-#     - Stock-watch-v2
-
-# build:stock-generator:
-#   <<: *default_build
-#   script:
-#     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
-#     - docker build -t $REGISTRY/$IMAGE_NAME/stock-generator:latest stock-generator
-#     - docker push $REGISTRY/$IMAGE_NAME/stock-generator:latest
-
-# build:alert-engine:
-#   <<: *default_build
-#   script:
-#     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
-#     - docker build -t $REGISTRY/$IMAGE_NAME/alert-engine:latest alert-engine
-#     - docker push $REGISTRY/$IMAGE_NAME/alert-engine:latest
-
-# build:backend-api:
-#   <<: *default_build
-#   script:
-#     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
-#     - docker build -t $REGISTRY/$IMAGE_NAME/backend-api:latest backend-api
-#     - docker push $REGISTRY/$IMAGE_NAME/backend-api:latest
-
-# build:frontend:
-#   <<: *default_build
-#   script:
-#     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
-#     - docker build -t $REGISTRY/$IMAGE_NAME/frontend:latest frontend
-#     - docker push $REGISTRY/$IMAGE_NAME/frontend:latest
-
-# deploy:
-#   stage: deploy
-#   image: bitnami/kubectl:latest
-#   only:
-#     - main
-#     - Stock-watch-v2
-#   script:
-#     - kubectl set image deployment/stock-generator stock-generator=$REGISTRY/$IMAGE_NAME/stock-generator:latest -n cloud-stock-watcher
-#     - kubectl set image deployment/alert-engine alert-engine=$REGISTRY/$IMAGE_NAME/alert-engine:latest -n cloud-stock-watcher
-#     - kubectl set image deployment/backend-api backend-api=$REGISTRY/$IMAGE_NAME/backend-api:latest -n cloud-stock-watcher
-#     - kubectl set image deployment/frontend frontend=$REGISTRY/$IMAGE_NAME/frontend:latest -n cloud-stock-watcher
-#     - kubectl rollout status deployment/stock-generator -n cloud-stock-watcher
-#     - kubectl rollout status deployment/alert-engine -n cloud-stock-watcher
-#     - kubectl rollout status deployment/backend-api -n cloud-stock-watcher
-#     - kubectl rollout status deployment/frontend -n cloud-stock-watcher
-
-
 stages:
   - build
   - deploy
@@ -174,58 +106,49 @@ variables:
   REGISTRY: "gitlab.control.lth.se:5050"
   IMAGE_NAME: "regler/frtn90/2025/agroup01"
 
-# ================================
-# Default build configuration
-# ================================
 .default_build: &default_build
   stage: build
   image: docker:latest
   tags:
-    - docker   # ensures Docker executor
+    - docker      # <<< IMPORTANT: force docker executor
   services:
     - name: docker:dind
       command: ["--tls=false"]
   variables:
     DOCKER_HOST: "tcp://docker:2375"
     DOCKER_TLS_CERTDIR: ""
-  before_script:
-    - docker info
-    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$REGISTRY"
   only:
     - main
     - Stock-watch-v2
 
-# ================================
-# Build jobs
-# ================================
-
 build:stock-generator:
   <<: *default_build
   script:
-    - docker build -t $REGISTRY/$IMAGE_NAME/stock-generator:latest stock-generator
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
+    - docker build -t $REGISTRY/$IMAGE_NAME/stock-generator:latest stock-generator/
     - docker push $REGISTRY/$IMAGE_NAME/stock-generator:latest
 
 build:alert-engine:
   <<: *default_build
   script:
-    - docker build -t $REGISTRY/$IMAGE_NAME/alert-engine:latest alert-engine
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
+    - docker build -t $REGISTRY/$IMAGE_NAME/alert-engine:latest alert-engine/
     - docker push $REGISTRY/$IMAGE_NAME/alert-engine:latest
 
 build:backend-api:
   <<: *default_build
   script:
-    - docker build -t $REGISTRY/$IMAGE_NAME/backend-api:latest backend-api
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
+    - docker build -t $REGISTRY/$IMAGE_NAME/backend-api:latest backend-api/
     - docker push $REGISTRY/$IMAGE_NAME/backend-api:latest
 
 build:frontend:
   <<: *default_build
   script:
-    - docker build -t $REGISTRY/$IMAGE_NAME/frontend:latest frontend
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
+    - docker build -t $REGISTRY/$IMAGE_NAME/frontend:latest frontend/
     - docker push $REGISTRY/$IMAGE_NAME/frontend:latest
 
-# ================================
-# Deploy job (Rolling Update)
-# ================================
 deploy:
   stage: deploy
   image: bitnami/kubectl:latest
@@ -233,7 +156,6 @@ deploy:
     - main
     - Stock-watch-v2
   script:
-    - kubectl version --client
     - kubectl set image deployment/stock-generator stock-generator=$REGISTRY/$IMAGE_NAME/stock-generator:latest -n cloud-stock-watcher
     - kubectl set image deployment/alert-engine alert-engine=$REGISTRY/$IMAGE_NAME/alert-engine:latest -n cloud-stock-watcher
     - kubectl set image deployment/backend-api backend-api=$REGISTRY/$IMAGE_NAME/backend-api:latest -n cloud-stock-watcher
@@ -242,3 +164,81 @@ deploy:
     - kubectl rollout status deployment/alert-engine -n cloud-stock-watcher
     - kubectl rollout status deployment/backend-api -n cloud-stock-watcher
     - kubectl rollout status deployment/frontend -n cloud-stock-watcher
+
+
+# stages:
+#   - build
+#   - deploy
+
+# variables:
+#   REGISTRY: "gitlab.control.lth.se:5050"
+#   IMAGE_NAME: "regler/frtn90/2025/agroup01"
+
+# # ================================
+# # Default build configuration
+# # ================================
+# .default_build: &default_build
+#   stage: build
+#   image: docker:latest
+#   tags:
+#     - docker   # ensures Docker executor
+#   services:
+#     - name: docker:dind
+#       command: ["--tls=false"]
+#   variables:
+#     DOCKER_HOST: "tcp://docker:2375"
+#     DOCKER_TLS_CERTDIR: ""
+#   before_script:
+#     - docker info
+#     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$REGISTRY"
+#   only:
+#     - main
+#     - Stock-watch-v2
+
+# # ================================
+# # Build jobs
+# # ================================
+
+# build:stock-generator:
+#   <<: *default_build
+#   script:
+#     - docker build -t $REGISTRY/$IMAGE_NAME/stock-generator:latest stock-generator
+#     - docker push $REGISTRY/$IMAGE_NAME/stock-generator:latest
+
+# build:alert-engine:
+#   <<: *default_build
+#   script:
+#     - docker build -t $REGISTRY/$IMAGE_NAME/alert-engine:latest alert-engine
+#     - docker push $REGISTRY/$IMAGE_NAME/alert-engine:latest
+
+# build:backend-api:
+#   <<: *default_build
+#   script:
+#     - docker build -t $REGISTRY/$IMAGE_NAME/backend-api:latest backend-api
+#     - docker push $REGISTRY/$IMAGE_NAME/backend-api:latest
+
+# build:frontend:
+#   <<: *default_build
+#   script:
+#     - docker build -t $REGISTRY/$IMAGE_NAME/frontend:latest frontend
+#     - docker push $REGISTRY/$IMAGE_NAME/frontend:latest
+
+# # ================================
+# # Deploy job (Rolling Update)
+# # ================================
+# deploy:
+#   stage: deploy
+#   image: bitnami/kubectl:latest
+#   only:
+#     - main
+#     - Stock-watch-v2
+#   script:
+#     - kubectl version --client
+#     - kubectl set image deployment/stock-generator stock-generator=$REGISTRY/$IMAGE_NAME/stock-generator:latest -n cloud-stock-watcher
+#     - kubectl set image deployment/alert-engine alert-engine=$REGISTRY/$IMAGE_NAME/alert-engine:latest -n cloud-stock-watcher
+#     - kubectl set image deployment/backend-api backend-api=$REGISTRY/$IMAGE_NAME/backend-api:latest -n cloud-stock-watcher
+#     - kubectl set image deployment/frontend frontend=$REGISTRY/$IMAGE_NAME/frontend:latest -n cloud-stock-watcher
+#     - kubectl rollout status deployment/stock-generator -n cloud-stock-watcher
+#     - kubectl rollout status deployment/alert-engine -n cloud-stock-watcher
+#     - kubectl rollout status deployment/backend-api -n cloud-stock-watcher
+#     - kubectl rollout status deployment/frontend -n cloud-stock-watcher
