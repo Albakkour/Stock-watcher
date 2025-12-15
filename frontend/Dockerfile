@@ -8,7 +8,7 @@ COPY . .
 RUN npm run build
 
 # FROM nginx:alpine
-FROM gitlab.control.lth.se:5050/regler/frtn90/2025/agroup01/nginx:alpine
+FROM gitlab.control.lth.se:5050/regler/frtn90/2025/agroup01/nginx
 
 RUN rm /etc/nginx/conf.d/default.conf
 
