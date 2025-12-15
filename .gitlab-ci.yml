@@ -12,7 +12,7 @@ build:stock-generator:
   services:
     - name: docker:dind
       command: ["--tls=false"]
-      privileged: true
+      # privileged: true
   variables:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
@@ -30,7 +30,7 @@ build:alert-engine:
   services:
     - name: docker:dind
       command: ["--tls=false"]
-      privileged: true
+      # privileged: true
   variables:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
@@ -48,7 +48,7 @@ build:backend-api:
   services:
     - name: docker:dind
       command: ["--tls=false"]
-      privileged: true
+      # privileged: true
   variables:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
@@ -66,7 +66,7 @@ build:frontend:
   services:
     - name: docker:dind
       command: ["--tls=false"]
-      privileged: true
+      # privileged: true
   variables:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
