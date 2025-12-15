@@ -1,98 +1,98 @@
-stages:
-  - build
-  - deploy
+# stages:
+#   - build
+#   - deploy
 
-variables:
-  REGISTRY: "gitlab.control.lth.se:5050"
-  IMAGE_NAME: "regler/frtn90/2025/agroup01"
+# variables:
+#   REGISTRY: "gitlab.control.lth.se:5050"
+#   IMAGE_NAME: "regler/frtn90/2025/agroup01"
 
-build:stock-generator:
-  stage: build
-  image: docker:latest
-  services:
-    - name: docker:dind
-      command: ["--tls=false"]
-      # privileged: true
-  variables:
-    DOCKER_HOST: tcp://docker:2375
-    DOCKER_TLS_CERTDIR: ""
-  only:
-    - main
-    - Stock-watch-v2
-  script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
-    - docker build -t $REGISTRY/$IMAGE_NAME/stock-generator:$CI_COMMIT_SHA stock-generator/
-    - docker push $REGISTRY/$IMAGE_NAME/stock-generator:$CI_COMMIT_SHA
+# build:stock-generator:
+#   stage: build
+#   image: docker:latest
+#   services:
+#     - name: docker:dind
+#       command: ["--tls=false"]
+#       # privileged: true
+#   variables:
+#     DOCKER_HOST: tcp://docker:2375
+#     DOCKER_TLS_CERTDIR: ""
+#   only:
+#     - main
+#     - Stock-watch-v2
+#   script:
+#     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
+#     - docker build -t $REGISTRY/$IMAGE_NAME/stock-generator:$CI_COMMIT_SHA stock-generator/
+#     - docker push $REGISTRY/$IMAGE_NAME/stock-generator:$CI_COMMIT_SHA
 
-build:alert-engine:
-  stage: build
-  image: docker:latest
-  services:
-    - name: docker:dind
-      command: ["--tls=false"]
-      # privileged: true
-  variables:
-    DOCKER_HOST: tcp://docker:2375
-    DOCKER_TLS_CERTDIR: ""
-  only:
-    - main
-    - Stock-watch-v2
-  script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
-    - docker build -t $REGISTRY/$IMAGE_NAME/alert-engine:$CI_COMMIT_SHA alert-engine/
-    - docker push $REGISTRY/$IMAGE_NAME/alert-engine:$CI_COMMIT_SHA
+# build:alert-engine:
+#   stage: build
+#   image: docker:latest
+#   services:
+#     - name: docker:dind
+#       command: ["--tls=false"]
+#       # privileged: true
+#   variables:
+#     DOCKER_HOST: tcp://docker:2375
+#     DOCKER_TLS_CERTDIR: ""
+#   only:
+#     - main
+#     - Stock-watch-v2
+#   script:
+#     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
+#     - docker build -t $REGISTRY/$IMAGE_NAME/alert-engine:$CI_COMMIT_SHA alert-engine/
+#     - docker push $REGISTRY/$IMAGE_NAME/alert-engine:$CI_COMMIT_SHA
 
-build:backend-api:
-  stage: build
-  image: docker:latest
-  services:
-    - name: docker:dind
-      command: ["--tls=false"]
-      # privileged: true
-  variables:
-    DOCKER_HOST: tcp://docker:2375
-    DOCKER_TLS_CERTDIR: ""
-  only:
-    - main
-    - Stock-watch-v2
-  script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
-    - docker build -t $REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA backend-api/
-    - docker push $REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA
+# build:backend-api:
+#   stage: build
+#   image: docker:latest
+#   services:
+#     - name: docker:dind
+#       command: ["--tls=false"]
+#       # privileged: true
+#   variables:
+#     DOCKER_HOST: tcp://docker:2375
+#     DOCKER_TLS_CERTDIR: ""
+#   only:
+#     - main
+#     - Stock-watch-v2
+#   script:
+#     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
+#     - docker build -t $REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA backend-api/
+#     - docker push $REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA
 
-build:frontend:
-  stage: build
-  image: docker:latest
-  services:
-    - name: docker:dind
-      command: ["--tls=false"]
-      # privileged: true
-  variables:
-    DOCKER_HOST: tcp://docker:2375
-    DOCKER_TLS_CERTDIR: ""
-  only:
-    - main
-    - Stock-watch-v2
-  script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
-    - docker build -t $REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA frontend/
-    - docker push $REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA
+# build:frontend:
+#   stage: build
+#   image: docker:latest
+#   services:
+#     - name: docker:dind
+#       command: ["--tls=false"]
+#       # privileged: true
+#   variables:
+#     DOCKER_HOST: tcp://docker:2375
+#     DOCKER_TLS_CERTDIR: ""
+#   only:
+#     - main
+#     - Stock-watch-v2
+#   script:
+#     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
+#     - docker build -t $REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA frontend/
+#     - docker push $REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA
 
-deploy:
-  stage: deploy
-  image: bitnami/kubectl:latest
-  only:
-    - main
-    - Stock-watch-v2
-  script:
-    - kubectl set image deployment/stock-generator stock-generator=$REGISTRY/$IMAGE_NAME/stock-generator:$CI_COMMIT_SHA -n cloud-stock-watcher
-    - kubectl set image deployment/alert-engine alert-engine=$REGISTRY/$IMAGE_NAME/alert-engine:$CI_COMMIT_SHA -n cloud-stock-watcher
-    - kubectl set image deployment/backend-api backend-api=$REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA -n cloud-stock-watcher
-    - kubectl set image deployment/frontend frontend=$REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA -n cloud-stock-watcher
-    - kubectl rollout status deployment/stock-generator -n cloud-stock-watcher
-    - kubectl rollout status deployment/alert-engine -n cloud-stock-watcher
-    - kubectl rollout status deployment/backend-api -n cloud-stock-watcher
-    - kubectl rollout status deployment/frontend -n cloud-stock-watcher
+# deploy:
+#   stage: deploy
+#   image: bitnami/kubectl:latest
+#   only:
+#     - main
+#     - Stock-watch-v2
+#   script:
+#     - kubectl set image deployment/stock-generator stock-generator=$REGISTRY/$IMAGE_NAME/stock-generator:$CI_COMMIT_SHA -n cloud-stock-watcher
+#     - kubectl set image deployment/alert-engine alert-engine=$REGISTRY/$IMAGE_NAME/alert-engine:$CI_COMMIT_SHA -n cloud-stock-watcher
+#     - kubectl set image deployment/backend-api backend-api=$REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA -n cloud-stock-watcher
+#     - kubectl set image deployment/frontend frontend=$REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA -n cloud-stock-watcher
+#     - kubectl rollout status deployment/stock-generator -n cloud-stock-watcher
+#     - kubectl rollout status deployment/alert-engine -n cloud-stock-watcher
+#     - kubectl rollout status deployment/backend-api -n cloud-stock-watcher
+#     - kubectl rollout status deployment/frontend -n cloud-stock-watcher
 
 #---------------------------------------
 
@@ -538,3 +538,87 @@ deploy:
 #         buildah --storage-driver "$BUILDAH_STORAGE_DRIVER" \
 #           push "$REGISTRY_PATH/frontend:latest"
 #       fi
+stages:
+  - build
+  - deploy
+
+variables:
+  REGISTRY: "gitlab.control.lth.se:5050"
+  IMAGE_NAME: "regler/frtn90/2025/agroup01"
+
+  DOCKER_TLS_CERTDIR: ""
+  DOCKER_HOST: "tcp://docker:2375"
+  DOCKER_DRIVER: overlay2
+
+.default_build: &default_build
+  stage: build
+  image: docker:24-cli
+  services:
+    - name: docker:24-dind
+      command: ["--tls=false"]
+  tags:
+    - docker
+  script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$REGISTRY"
+    - export TAG="$CI_COMMIT_SHORT_SHA"
+
+# -------------------------
+# BUILD JOBS
+# -------------------------
+
+build:stock-generator:
+  <<: *default_build
+  script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$REGISTRY"
+    - export TAG="$CI_COMMIT_SHORT_SHA"
+    - docker build --pull -t "$REGISTRY/$IMAGE_NAME/stock-generator:$TAG" stock-generator/
+    - docker push "$REGISTRY/$IMAGE_NAME/stock-generator:$TAG"
+
+build:alert-engine:
+  <<: *default_build
+  script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$REGISTRY"
+    - export TAG="$CI_COMMIT_SHORT_SHA"
+    - docker build --pull -t "$REGISTRY/$IMAGE_NAME/alert-engine:$TAG" alert-engine/
+    - docker push "$REGISTRY/$IMAGE_NAME/alert-engine:$TAG"
+
+build:backend-api:
+  <<: *default_build
+  script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$REGISTRY"
+    - export TAG="$CI_COMMIT_SHORT_SHA"
+    - docker build --pull -t "$REGISTRY/$IMAGE_NAME/backend-api:$TAG" backend-api/
+    - docker push "$REGISTRY/$IMAGE_NAME/backend-api:$TAG"
+
+build:frontend:
+  <<: *default_build
+  script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$REGISTRY"
+    - export TAG="$CI_COMMIT_SHORT_SHA"
+    - docker build --pull -t "$REGISTRY/$IMAGE_NAME/frontend:$TAG" frontend/
+    - docker push "$REGISTRY/$IMAGE_NAME/frontend:$TAG"
+
+# -------------------------
+# DEPLOY
+# -------------------------
+
+deploy:
+  stage: deploy
+  image: bitnami/kubectl:latest
+  tags:
+    - docker
+  script:
+    - export TAG="$CI_COMMIT_SHORT_SHA"
+
+    - kubectl set image deployment/stock-generator stock-generator=$REGISTRY/$IMAGE_NAME/stock-generator:$TAG -n cloud-stock-watcher
+    - kubectl set image deployment/alert-engine alert-engine=$REGISTRY/$IMAGE_NAME/alert-engine:$TAG -n cloud-stock-watcher
+    - kubectl set image deployment/backend-api backend-api=$REGISTRY/$IMAGE_NAME/backend-api:$TAG -n cloud-stock-watcher
+    - kubectl set image deployment/frontend frontend=$REGISTRY/$IMAGE_NAME/frontend:$TAG -n cloud-stock-watcher
+
+    - kubectl rollout status deployment/stock-generator -n cloud-stock-watcher
+    - kubectl rollout status deployment/alert-engine -n cloud-stock-watcher
+    - kubectl rollout status deployment/backend-api -n cloud-stock-watcher
+    - kubectl rollout status deployment/frontend -n cloud-stock-watcher
+
+rules:
+  - if: '$CI_COMMIT_BRANCH == "main"'
