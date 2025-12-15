@@ -5,6 +5,6 @@
 
   tasks:
     - name: Delete Kubernetes manifests
-      command: kubectl delete -k k8s/
+      command: kubectl delete -f k8s/
       args:
         chdir: "{{ playbook_dir }}/.."

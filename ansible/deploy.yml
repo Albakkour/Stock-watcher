@@ -5,6 +5,6 @@
 
   tasks:
     - name: Apply Kubernetes manifests
-      command: kubectl apply -k k8s/
+      command: kubectl apply -f k8s/
       args:
         chdir: "{{ playbook_dir }}/.."

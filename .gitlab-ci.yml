@@ -538,54 +538,54 @@
 #         buildah --storage-driver "$BUILDAH_STORAGE_DRIVER" \
 #           push "$REGISTRY_PATH/frontend:latest"
 #       fi
-stages:
-  - build
+# stages:
+#   - build
 
-variables:
-  DOCKER_HOST: tcp://docker:2375
-  DOCKER_TLS_CERTDIR: ""
-  DOCKER_DRIVER: overlay2
+# variables:
+#   DOCKER_HOST: tcp://docker:2375
+#   DOCKER_TLS_CERTDIR: ""
+#   DOCKER_DRIVER: overlay2
 
-.build_template: &build_template
-  stage: build
-  tags:
-    - docker
-  resource_group: docker-builds
-  image: docker:24-cli
-  services:
-    - name: docker:24-dind
-      command: ["--tls=false", "--mtu=1460"]
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-    - if: '$CI_COMMIT_TAG'
-  before_script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
-    - TAG="${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}"
+# .build_template: &build_template
+#   stage: build
+#   tags:
+#     - docker
+#   resource_group: docker-builds
+#   image: docker:24-cli
+#   services:
+#     - name: docker:24-dind
+#       command: ["--tls=false", "--mtu=1460"]
+#   rules:
+#     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+#     - if: '$CI_COMMIT_TAG'
+#   before_script:
+#     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+#     - TAG="${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}"
 
-# --- STOCK GENERATOR ---
-build-stock-generator:
-  <<: *build_template
-  script:
-    - docker build --pull -t "$CI_REGISTRY_IMAGE/stock-generator:$TAG" stock-generator
-    - docker push "$CI_REGISTRY_IMAGE/stock-generator:$TAG"
+# # --- STOCK GENERATOR ---
+# build-stock-generator:
+#   <<: *build_template
+#   script:
+#     - docker build --pull -t "$CI_REGISTRY_IMAGE/stock-generator:$TAG" stock-generator
+#     - docker push "$CI_REGISTRY_IMAGE/stock-generator:$TAG"
 
-# --- ALERT ENGINE ---
-build-alert-engine:
-  <<: *build_template
-  script:
-    - docker build --pull -t "$CI_REGISTRY_IMAGE/alert-engine:$TAG" alert-engine
-    - docker push "$CI_REGISTRY_IMAGE/alert-engine:$TAG"
+# # --- ALERT ENGINE ---
+# build-alert-engine:
+#   <<: *build_template
+#   script:
+#     - docker build --pull -t "$CI_REGISTRY_IMAGE/alert-engine:$TAG" alert-engine
+#     - docker push "$CI_REGISTRY_IMAGE/alert-engine:$TAG"
 
-# --- BACKEND API ---
-build-backend-api:
-  <<: *build_template
-  script:
-    - docker build --pull -t "$CI_REGISTRY_IMAGE/backend-api:$TAG" backend-api
-    - docker push "$CI_REGISTRY_IMAGE/backend-api:$TAG"
+# # --- BACKEND API ---
+# build-backend-api:
+#   <<: *build_template
+#   script:
+#     - docker build --pull -t "$CI_REGISTRY_IMAGE/backend-api:$TAG" backend-api
+#     - docker push "$CI_REGISTRY_IMAGE/backend-api:$TAG"
 
-# --- FRONTEND ---
-build-frontend:
-  <<: *build_template
-  script:
-    - docker build --pull -t "$CI_REGISTRY_IMAGE/frontend:$TAG" frontend
-    - docker push "$CI_REGISTRY_IMAGE/frontend:$TAG"
+# # --- FRONTEND ---
+# build-frontend:
+#   <<: *build_template
+#   script:
+#     - docker build --pull -t "$CI_REGISTRY_IMAGE/frontend:$TAG" frontend
+#     - docker push "$CI_REGISTRY_IMAGE/frontend:$TAG"

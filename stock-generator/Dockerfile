@@ -1,4 +1,4 @@
-FROM registry.gitlab.com/library/python:3.11-slim
+FROM python:3.11
 
 WORKDIR /app
 
