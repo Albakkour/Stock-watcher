@@ -107,7 +107,7 @@ variables:
   stage: build
   image: docker:latest
   tags:
-    - docker      # <<< IMPORTANT: force docker executor
+    - docker      
   services:
     - name: docker:dind
       command: ["--tls=false"]
