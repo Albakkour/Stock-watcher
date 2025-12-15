@@ -122,28 +122,28 @@ build:stock-generator:
   <<: *default_build
   script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
-    - docker build -t $REGISTRY/$IMAGE_NAME/stock-generator:latest /stock-generator/ .
+    - docker build -t $REGISTRY/$IMAGE_NAME/stock-generator:latest stock-generator/ .
     - docker push $REGISTRY/$IMAGE_NAME/stock-generator:latest
 
 build:alert-engine:
   <<: *default_build
   script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
-    - docker build -t $REGISTRY/$IMAGE_NAME/alert-engine:latest /alert-engine/ .
+    - docker build -t $REGISTRY/$IMAGE_NAME/alert-engine:latest alert-engine/ .
     - docker push $REGISTRY/$IMAGE_NAME/alert-engine:latest
 
 build:backend-api:
   <<: *default_build
   script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
-    - docker build -t $REGISTRY/$IMAGE_NAME/backend-api:latest /backend-api/ .
+    - docker build -t $REGISTRY/$IMAGE_NAME/backend-api:latest backend-api/ .
     - docker push $REGISTRY/$IMAGE_NAME/backend-api:latest
 
 build:frontend:
   <<: *default_build
   script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
-    - docker build -t $REGISTRY/$IMAGE_NAME/frontend:latest /frontend/ .
+    - docker build -t $REGISTRY/$IMAGE_NAME/frontend:latest frontend/ .
     - docker push $REGISTRY/$IMAGE_NAME/frontend:latest
 
 deploy:
