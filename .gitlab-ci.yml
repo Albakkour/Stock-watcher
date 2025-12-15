@@ -189,18 +189,7 @@ variables:
     - main
     - Stock-watch-v2
     
-build:frontend:
-  <<: *default_build
-  script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
 
-    # Patch Dockerfile at build time → replaces node:20-alpine & nginx:alpine
-    - |
-      sed -i "s|FROM node:20-alpine|FROM $NODE_BASE|g" frontend/Dockerfile
-      sed -i "s|FROM nginx:alpine|FROM $NGINX_BASE|g" frontend/Dockerfile
-
-    - docker build -t $REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA frontend/
-    - docker push $REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA
 
 build:stock-generator:
   <<: *default_build
@@ -223,6 +212,18 @@ build:backend-api:
     - docker build -t $REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA backend-api/
     - docker push $REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA
 
+build:frontend:
+  <<: *default_build
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
+
+    # Patch Dockerfile at build time → replaces node:20-alpine & nginx:alpine
+    - |
+      sed -i "s|FROM node:20-alpine|FROM $NODE_BASE|g" frontend/Dockerfile
+      sed -i "s|FROM nginx:alpine|FROM $NGINX_BASE|g" frontend/Dockerfile
+
+    - docker build -t $REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA frontend/
+    - docker push $REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA
 
 deploy:
   stage: deploy
