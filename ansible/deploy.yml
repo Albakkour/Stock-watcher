@@ -1,0 +1,10 @@
+---
+- name: Deploy Cloud Stock Watcher
+  hosts: local
+  gather_facts: no
+
+  tasks:
+    - name: Apply Kubernetes manifests
+      command: kubectl apply -k k8s/
+      args:
+        chdir: "{{ playbook_dir }}/.."

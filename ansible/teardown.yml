@@ -1,0 +1,10 @@
+---
+- name: Teardown Cloud Stock Watcher
+  hosts: local
+  gather_facts: no
+
+  tasks:
+    - name: Delete Kubernetes manifests
+      command: kubectl delete -k k8s/
+      args:
+        chdir: "{{ playbook_dir }}/.."
