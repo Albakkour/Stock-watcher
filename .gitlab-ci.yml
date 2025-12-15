@@ -122,29 +122,29 @@ build:stock-generator:
   <<: *default_build
   script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
-    - docker build -t $REGISTRY/$IMAGE_NAME/stock-generator:$latest stock-generator/latest
+    - docker build -t $REGISTRY/$IMAGE_NAME/stock-generator:latest .
     - docker push $REGISTRY/$IMAGE_NAME/stock-generator:latest
 
 build:alert-engine:
   <<: *default_build
   script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
-    - docker build -t $REGISTRY/$IMAGE_NAME/alert-engine:$latest alert-engine/latest
-    - docker push $REGISTRY/$IMAGE_NAME/alert-engine:$latest
+    - docker build -t $REGISTRY/$IMAGE_NAME/alert-engine:latest .
+    - docker push $REGISTRY/$IMAGE_NAME/alert-engine:latest
 
 build:backend-api:
   <<: *default_build
   script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
-    - docker build -t $REGISTRY/$IMAGE_NAME/backend-api:$latest backend-api/latest
-    - docker push $REGISTRY/$IMAGE_NAME/backend-api:$latest
+    - docker build -t $REGISTRY/$IMAGE_NAME/backend-api:latest .
+    - docker push $REGISTRY/$IMAGE_NAME/backend-api:latest
 
 build:frontend:
   <<: *default_build
   script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
-    - docker build -t $REGISTRY/$IMAGE_NAME/frontend:$latest frontend/latest
-    - docker push $REGISTRY/$IMAGE_NAME/frontend:$latest
+    - docker build -t $REGISTRY/$IMAGE_NAME/frontend:latest .
+    - docker push $REGISTRY/$IMAGE_NAME/frontend:latest
 
 deploy:
   stage: deploy
@@ -153,10 +153,10 @@ deploy:
     - main
     - Stock-watch-v2
   script:
-    - kubectl set image deployment/stock-generator stock-generator=$REGISTRY/$IMAGE_NAME/stock-generator:$latest -n cloud-stock-watcher
-    - kubectl set image deployment/alert-engine alert-engine=$REGISTRY/$IMAGE_NAME/alert-engine:$latest -n cloud-stock-watcher
-    - kubectl set image deployment/backend-api backend-api=$REGISTRY/$IMAGE_NAME/backend-api:$latest -n cloud-stock-watcher
-    - kubectl set image deployment/frontend frontend=$REGISTRY/$IMAGE_NAME/frontend:$latest -n cloud-stock-watcher
+    - kubectl set image deployment/stock-generator stock-generator=$REGISTRY/$IMAGE_NAME/stock-generator:latest -n cloud-stock-watcher
+    - kubectl set image deployment/alert-engine alert-engine=$REGISTRY/$IMAGE_NAME/alert-engine:latest -n cloud-stock-watcher
+    - kubectl set image deployment/backend-api backend-api=$REGISTRY/$IMAGE_NAME/backend-api:latest -n cloud-stock-watcher
+    - kubectl set image deployment/frontend frontend=$REGISTRY/$IMAGE_NAME/frontend:latest -n cloud-stock-watcher
     - kubectl rollout status deployment/stock-generator -n cloud-stock-watcher
     - kubectl rollout status deployment/alert-engine -n cloud-stock-watcher
     - kubectl rollout status deployment/backend-api -n cloud-stock-watcher
