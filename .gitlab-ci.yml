@@ -164,112 +164,80 @@
 # ---------------------------------------
 stages:
   - build
+  - deploy
 
 variables:
-  DOCKER_HOST: tcp://docker:2375
-  DOCKER_TLS_CERTDIR: ""
-  DOCKER_DRIVER: overlay2
+  REGISTRY: "gitlab.control.lth.se:5050"
+  IMAGE_NAME: "regler/frtn90/2025/agroup01"
 
-# Push base images once so pipeline doesn't need Docker Hub
-.build_base_images:
+  # Use GitLab’s Docker Hub mirror → avoids all rate limits
+  NODE_BASE: "registry.gitlab.com/library/node:20-alpine"
+  NGINX_BASE: "registry.gitlab.com/library/nginx:alpine"
+
+.default_build: &default_build
   stage: build
-  image: docker:24-cli
-  tags: [docker]
+  image: docker:latest
+  tags:
+    - docker
   services:
-    - name: docker:24-dind
-      command: ["--tls=false", "--mtu=1460"]
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - name: docker:dind
+      command: ["--tls=false"]
+  variables:
+    DOCKER_HOST: "tcp://docker:2375"
+    DOCKER_TLS_CERTDIR: ""
+  only:
+    - main
+    - Stock-watch-v2
+
+build:stock-generator:
+  <<: *default_build
   script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
+    - docker build -t $REGISTRY/$IMAGE_NAME/stock-generator:$CI_COMMIT_SHA stock-generator/
+    - docker push $REGISTRY/$IMAGE_NAME/stock-generator:$CI_COMMIT_SHA
 
-    # Mirror node + nginx so we never pull from Docker Hub again
-    - docker pull node:20-alpine
-    - docker tag node:20-alpine $CI_REGISTRY_IMAGE/base/node:20-alpine
-    - docker push $CI_REGISTRY_IMAGE/base/node:20-alpine
-
-    - docker pull nginx:alpine
-    - docker tag nginx:alpine $CI_REGISTRY_IMAGE/base/nginx:alpine
-    - docker push $CI_REGISTRY_IMAGE/base/nginx:alpine
-
-
-.build_template: &build_template
-  tags: [docker]
-  stage: build
-  resource_group: docker-builds
-  image: docker:24-cli
-  services:
-    - name: docker:24-dind
-      command: ["--tls=false", "--mtu=1460"]
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-    - if: '$CI_COMMIT_TAG'
+build:alert-engine:
+  <<: *default_build
   script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
-    - TAG="${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}"
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
+    - docker build -t $REGISTRY/$IMAGE_NAME/alert-engine:$CI_COMMIT_SHA alert-engine/
+    - docker push $REGISTRY/$IMAGE_NAME/alert-engine:$CI_COMMIT_SHA
 
-
-build-nginx:
-  <<: *build_template
+build:backend-api:
+  <<: *default_build
   script:
-    - TAG="${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}"
-    - docker build --pull \
-        --build-arg BASE_NGINX="$CI_REGISTRY_IMAGE/base/nginx:alpine" \
-        -t "$CI_REGISTRY_IMAGE/nginx:$TAG" \
-        -t "$CI_REGISTRY_IMAGE/nginx:$CI_COMMIT_REF_SLUG" \
-        project/nginx-proxy
-    - docker push "$CI_REGISTRY_IMAGE/nginx:$TAG"
-    - docker push "$CI_REGISTRY_IMAGE/nginx:$CI_COMMIT_REF_SLUG"
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
+    - docker build -t $REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA backend-api/
+    - docker push $REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA
 
-
-build-api:
-  <<: *build_template
+build:frontend:
+  <<: *default_build
   script:
-    - TAG="${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}"
-    - docker build --pull \
-        -t "$CI_REGISTRY_IMAGE/api:$TAG" \
-        -t "$CI_REGISTRY_IMAGE/api:$CI_COMMIT_REF_SLUG" \
-        project/api
-    - docker push "$CI_REGISTRY_IMAGE/api:$TAG"
-    - docker push "$CI_REGISTRY_IMAGE/api:$CI_COMMIT_REF_SLUG"
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
 
+    # Patch Dockerfile at build time → replaces node:20-alpine & nginx:alpine
+    - |
+      sed -i "s|FROM node:20-alpine|FROM $NODE_BASE|g" frontend/Dockerfile
+      sed -i "s|FROM nginx:alpine|FROM $NGINX_BASE|g" frontend/Dockerfile
 
-build-frontend:
-  <<: *build_template
+    - docker build -t $REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA frontend/
+    - docker push $REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA
+
+deploy:
+  stage: deploy
+  image: bitnami/kubectl:latest
+  only:
+    - main
+    - Stock-watch-v2
   script:
-    - TAG="${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}"
-    - docker build --pull \
-        --build-arg BASE_NODE="$CI_REGISTRY_IMAGE/base/node:20-alpine" \
-        --build-arg BASE_NGINX="$CI_REGISTRY_IMAGE/base/nginx:alpine" \
-        -t "$CI_REGISTRY_IMAGE/frontend:$TAG" \
-        -t "$CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_REF_SLUG" \
-        frontend
-    - docker push "$CI_REGISTRY_IMAGE/frontend:$TAG"
-    - docker push "$CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_REF_SLUG"
-
-
-build-game-engine:
-  <<: *build_template
-  script:
-    - TAG="${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}"
-    - docker build --pull \
-        -t "$CI_REGISTRY_IMAGE/game-engine:$TAG" \
-        -t "$CI_REGISTRY_IMAGE/game-engine:$CI_COMMIT_REF_SLUG" \
-        project/game-engine
-    - docker push "$CI_REGISTRY_IMAGE/game-engine:$TAG"
-    - docker push "$CI_REGISTRY_IMAGE/game-engine:$CI_COMMIT_REF_SLUG"
-
-
-build-websocket:
-  <<: *build_template
-  script:
-    - TAG="${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}"
-    - docker build --pull \
-        -t "$CI_REGISTRY_IMAGE/websocket:$TAG" \
-        -t "$CI_REGISTRY_IMAGE/websocket:$CI_COMMIT_REF_SLUG" \
-        project/websocket
-    - docker push "$CI_REGISTRY_IMAGE/websocket:$TAG"
-    - docker push "$CI_REGISTRY_IMAGE/websocket:$CI_COMMIT_REF_SLUG"
+    - kubectl set image deployment/stock-generator stock-generator=$REGISTRY/$IMAGE_NAME/stock-generator:$CI_COMMIT_SHA -n cloud-stock-watcher
+    - kubectl set image deployment/alert-engine alert-engine=$REGISTRY/$IMAGE_NAME/alert-engine:$CI_COMMIT_SHA -n cloud-stock-watcher
+    - kubectl set image deployment/backend-api backend-api=$REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA -n cloud-stock-watcher
+    - kubectl set image deployment/frontend frontend=$REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA -n cloud-stock-watcher
+    - kubectl rollout status deployment/stock-generator -n cloud-stock-watcher
+    - kubectl rollout status deployment/alert-engine -n cloud-stock-watcher
+    - kubectl rollout status deployment/backend-api -n cloud-stock-watcher
+    - kubectl rollout status deployment/frontend -n cloud-stock-watcher
 
 
 
