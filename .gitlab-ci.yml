@@ -540,85 +540,52 @@
 #       fi
 stages:
   - build
-  - deploy
 
 variables:
-  REGISTRY: "gitlab.control.lth.se:5050"
-  IMAGE_NAME: "regler/frtn90/2025/agroup01"
-
+  DOCKER_HOST: tcp://docker:2375
   DOCKER_TLS_CERTDIR: ""
-  DOCKER_HOST: "tcp://docker:2375"
   DOCKER_DRIVER: overlay2
 
-.default_build: &default_build
+.build_template: &build_template
   stage: build
+  tags:
+    - docker
+  resource_group: docker-builds
   image: docker:24-cli
   services:
     - name: docker:24-dind
-      command: ["--tls=false"]
-  tags:
-    - docker
+      command: ["--tls=false", "--mtu=1460"]
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_COMMIT_TAG'
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+    - TAG="${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}"
+
+# --- STOCK GENERATOR ---
+build-stock-generator:
+  <<: *build_template
   script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$REGISTRY"
-    - export TAG="$CI_COMMIT_SHORT_SHA"
+    - docker build --pull -t "$CI_REGISTRY_IMAGE/stock-generator:$TAG" stock-generator
+    - docker push "$CI_REGISTRY_IMAGE/stock-generator:$TAG"
 
-# -------------------------
-# BUILD JOBS
-# -------------------------
-
-build:stock-generator:
-  <<: *default_build
+# --- ALERT ENGINE ---
+build-alert-engine:
+  <<: *build_template
   script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$REGISTRY"
-    - export TAG="$CI_COMMIT_SHORT_SHA"
-    - docker build --pull -t "$REGISTRY/$IMAGE_NAME/stock-generator:$TAG" stock-generator/
-    - docker push "$REGISTRY/$IMAGE_NAME/stock-generator:$TAG"
+    - docker build --pull -t "$CI_REGISTRY_IMAGE/alert-engine:$TAG" alert-engine
+    - docker push "$CI_REGISTRY_IMAGE/alert-engine:$TAG"
 
-build:alert-engine:
-  <<: *default_build
+# --- BACKEND API ---
+build-backend-api:
+  <<: *build_template
   script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$REGISTRY"
-    - export TAG="$CI_COMMIT_SHORT_SHA"
-    - docker build --pull -t "$REGISTRY/$IMAGE_NAME/alert-engine:$TAG" alert-engine/
-    - docker push "$REGISTRY/$IMAGE_NAME/alert-engine:$TAG"
+    - docker build --pull -t "$CI_REGISTRY_IMAGE/backend-api:$TAG" backend-api
+    - docker push "$CI_REGISTRY_IMAGE/backend-api:$TAG"
 
-build:backend-api:
-  <<: *default_build
+# --- FRONTEND ---
+build-frontend:
+  <<: *build_template
   script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$REGISTRY"
-    - export TAG="$CI_COMMIT_SHORT_SHA"
-    - docker build --pull -t "$REGISTRY/$IMAGE_NAME/backend-api:$TAG" backend-api/
-    - docker push "$REGISTRY/$IMAGE_NAME/backend-api:$TAG"
-
-build:frontend:
-  <<: *default_build
-  script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$REGISTRY"
-    - export TAG="$CI_COMMIT_SHORT_SHA"
-    - docker build --pull -t "$REGISTRY/$IMAGE_NAME/frontend:$TAG" frontend/
-    - docker push "$REGISTRY/$IMAGE_NAME/frontend:$TAG"
-
-# -------------------------
-# DEPLOY
-# -------------------------
-
-deploy:
-  stage: deploy
-  image: bitnami/kubectl:latest
-  tags:
-    - docker
-  script:
-    - export TAG="$CI_COMMIT_SHORT_SHA"
-
-    - kubectl set image deployment/stock-generator stock-generator=$REGISTRY/$IMAGE_NAME/stock-generator:$TAG -n cloud-stock-watcher
-    - kubectl set image deployment/alert-engine alert-engine=$REGISTRY/$IMAGE_NAME/alert-engine:$TAG -n cloud-stock-watcher
-    - kubectl set image deployment/backend-api backend-api=$REGISTRY/$IMAGE_NAME/backend-api:$TAG -n cloud-stock-watcher
-    - kubectl set image deployment/frontend frontend=$REGISTRY/$IMAGE_NAME/frontend:$TAG -n cloud-stock-watcher
-
-    - kubectl rollout status deployment/stock-generator -n cloud-stock-watcher
-    - kubectl rollout status deployment/alert-engine -n cloud-stock-watcher
-    - kubectl rollout status deployment/backend-api -n cloud-stock-watcher
-    - kubectl rollout status deployment/frontend -n cloud-stock-watcher
-
-rules:
-  - if: '$CI_COMMIT_BRANCH == "main"'
+    - docker build --pull -t "$CI_REGISTRY_IMAGE/frontend:$TAG" frontend
+    - docker push "$CI_REGISTRY_IMAGE/frontend:$TAG"
