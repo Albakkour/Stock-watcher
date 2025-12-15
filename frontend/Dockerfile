@@ -1,4 +1,6 @@
-FROM node:20-alpine AS build
+ARG BASE_NODE
+FROM ${BASE_NODE} AS build
+
 
 WORKDIR /app
 COPY package.json package-lock.json* ./
@@ -7,7 +9,9 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-FROM nginx:alpine
+ARG BASE_NGINX
+FROM ${BASE_NGINX}
+
 
 RUN rm /etc/nginx/conf.d/default.conf
 
