@@ -162,83 +162,83 @@
 #     - kubectl rollout status deployment/backend-api -n cloud-stock-watcher
 #     - kubectl rollout status deployment/frontend -n cloud-stock-watcher
 # ---------------------------------------
-# stages:
-#   - build
-#   - deploy
+stages:
+  - build
+  - deploy
 
-# variables:
-#   REGISTRY: "gitlab.control.lth.se:5050"
-#   IMAGE_NAME: "regler/frtn90/2025/agroup01"
+variables:
+  REGISTRY: "gitlab.control.lth.se:5050"
+  IMAGE_NAME: "regler/frtn90/2025/agroup01"
 
-#   # Use GitLab’s Docker Hub mirror → avoids all rate limits
-#   NODE_BASE: "registry.gitlab.control.lth.se/library/node:20-alpine" 
-#   NGINX_BASE: "registry.gitlab.control.lth.se/library/nginx:alpine"
+  # Use GitLab’s Docker Hub mirror → avoids all rate limits
+  NODE_BASE: "registry.gitlab.control.lth.se/library/node:20-alpine" 
+  NGINX_BASE: "registry.gitlab.control.lth.se/library/nginx:alpine"
 
-# .default_build: &default_build
-#   stage: build
-#   image: docker:latest
-#   tags:
-#     - docker
-#   services:
-#     - name: docker:dind
-#       command: ["--tls=false"]
-#   variables:
-#     DOCKER_HOST: "tcp://docker:2375"
-#     DOCKER_TLS_CERTDIR: ""
-#   only:
-#     - main
-#     - Stock-watch-v2
+.default_build: &default_build
+  stage: build
+  image: docker:latest
+  tags:
+    - docker
+  services:
+    - name: docker:dind
+      command: ["--tls=false"]
+  variables:
+    DOCKER_HOST: "tcp://docker:2375"
+    DOCKER_TLS_CERTDIR: ""
+  only:
+    - main
+    - Stock-watch-v2
     
-# build:frontend:
-#   <<: *default_build
-#   script:
-#     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
+build:frontend:
+  <<: *default_build
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
 
-#     # Patch Dockerfile at build time → replaces node:20-alpine & nginx:alpine
-#     - |
-#       sed -i "s|FROM node:20-alpine|FROM $NODE_BASE|g" frontend/Dockerfile
-#       sed -i "s|FROM nginx:alpine|FROM $NGINX_BASE|g" frontend/Dockerfile
+    # Patch Dockerfile at build time → replaces node:20-alpine & nginx:alpine
+    - |
+      sed -i "s|FROM node:20-alpine|FROM $NODE_BASE|g" frontend/Dockerfile
+      sed -i "s|FROM nginx:alpine|FROM $NGINX_BASE|g" frontend/Dockerfile
 
-#     - docker build -t $REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA frontend/
-#     - docker push $REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA
+    - docker build -t $REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA frontend/
+    - docker push $REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA
 
-# build:stock-generator:
-#   <<: *default_build
-#   script:
-#     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
-#     - docker build -t $REGISTRY/$IMAGE_NAME/stock-generator:$CI_COMMIT_SHA stock-generator/
-#     - docker push $REGISTRY/$IMAGE_NAME/stock-generator:$CI_COMMIT_SHA
+build:stock-generator:
+  <<: *default_build
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
+    - docker build -t $REGISTRY/$IMAGE_NAME/stock-generator:$CI_COMMIT_SHA stock-generator/
+    - docker push $REGISTRY/$IMAGE_NAME/stock-generator:$CI_COMMIT_SHA
 
-# build:alert-engine:
-#   <<: *default_build
-#   script:
-#     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
-#     - docker build -t $REGISTRY/$IMAGE_NAME/alert-engine:$CI_COMMIT_SHA alert-engine/
-#     - docker push $REGISTRY/$IMAGE_NAME/alert-engine:$CI_COMMIT_SHA
+build:alert-engine:
+  <<: *default_build
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
+    - docker build -t $REGISTRY/$IMAGE_NAME/alert-engine:$CI_COMMIT_SHA alert-engine/
+    - docker push $REGISTRY/$IMAGE_NAME/alert-engine:$CI_COMMIT_SHA
 
-# build:backend-api:
-#   <<: *default_build
-#   script:
-#     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
-#     - docker build -t $REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA backend-api/
-#     - docker push $REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA
+build:backend-api:
+  <<: *default_build
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
+    - docker build -t $REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA backend-api/
+    - docker push $REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA
 
 
-# deploy:
-#   stage: deploy
-#   image: bitnami/kubectl:latest
-#   only:
-#     - main
-#     - Stock-watch-v2
-#   script:
-#     - kubectl set image deployment/stock-generator stock-generator=$REGISTRY/$IMAGE_NAME/stock-generator:$CI_COMMIT_SHA -n cloud-stock-watcher
-#     - kubectl set image deployment/alert-engine alert-engine=$REGISTRY/$IMAGE_NAME/alert-engine:$CI_COMMIT_SHA -n cloud-stock-watcher
-#     - kubectl set image deployment/backend-api backend-api=$REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA -n cloud-stock-watcher
-#     - kubectl set image deployment/frontend frontend=$REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA -n cloud-stock-watcher
-#     - kubectl rollout status deployment/stock-generator -n cloud-stock-watcher
-#     - kubectl rollout status deployment/alert-engine -n cloud-stock-watcher
-#     - kubectl rollout status deployment/backend-api -n cloud-stock-watcher
-#     - kubectl rollout status deployment/frontend -n cloud-stock-watcher
+deploy:
+  stage: deploy
+  image: bitnami/kubectl:latest
+  only:
+    - main
+    - Stock-watch-v2
+  script:
+    - kubectl set image deployment/stock-generator stock-generator=$REGISTRY/$IMAGE_NAME/stock-generator:$CI_COMMIT_SHA -n cloud-stock-watcher
+    - kubectl set image deployment/alert-engine alert-engine=$REGISTRY/$IMAGE_NAME/alert-engine:$CI_COMMIT_SHA -n cloud-stock-watcher
+    - kubectl set image deployment/backend-api backend-api=$REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA -n cloud-stock-watcher
+    - kubectl set image deployment/frontend frontend=$REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA -n cloud-stock-watcher
+    - kubectl rollout status deployment/stock-generator -n cloud-stock-watcher
+    - kubectl rollout status deployment/alert-engine -n cloud-stock-watcher
+    - kubectl rollout status deployment/backend-api -n cloud-stock-watcher
+    - kubectl rollout status deployment/frontend -n cloud-stock-watcher
 
 
 
@@ -738,106 +738,106 @@
 #   script:
 #     - docker build --pull -t "$CI_REGISTRY_IMAGE/frontend:$TAG" frontend
 #     - docker push "$CI_REGISTRY_IMAGE/frontend:$TAG"
-stages:
-  - build
-  - deploy
+# stages:
+#   - build
+#   - deploy
 
-variables:
-  REGISTRY: "gitlab.control.lth.se:5050"
-  IMAGE_NAME: "regler/frtn90/2025/agroup01"
+# variables:
+#   REGISTRY: "gitlab.control.lth.se:5050"
+#   IMAGE_NAME: "regler/frtn90/2025/agroup01"
 
-  # Use GitLab mirror images (avoids Docker Hub rate limits)
-  NODE_BASE: "registry.gitlab.com/library/node:20-alpine"
-  NGINX_BASE: "registry.gitlab.com/library/nginx:alpine"
+#   # Use GitLab mirror images (avoids Docker Hub rate limits)
+#   NODE_BASE: "registry.gitlab.com/library/node:20-alpine"
+#   NGINX_BASE: "registry.gitlab.com/library/nginx:alpine"
 
-# --------------------------------------------------
-# Shared build template (Shell runner compatible)
-# --------------------------------------------------
-.default_build: &default_build
-  stage: build
-  only:
-    - main
-    - Stock-watch-v2
-  script:
-    - docker info
-    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$REGISTRY"
+# # --------------------------------------------------
+# # Shared build template (Shell runner compatible)
+# # --------------------------------------------------
+# .default_build: &default_build
+#   stage: build
+#   only:
+#     - main
+#     - Stock-watch-v2
+#   script:
+#     - docker info
+#     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$REGISTRY"
 
-# --------------------------------------------------
-# Build Frontend
-# --------------------------------------------------
-build:frontend:
-  <<: *default_build
-  script:
-    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$REGISTRY"
+# # --------------------------------------------------
+# # Build Frontend
+# # --------------------------------------------------
+# build:frontend:
+#   <<: *default_build
+#   script:
+#     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$REGISTRY"
 
-    # Patch Dockerfile to use GitLab mirror images
-    - |
-      sed -i "s|FROM node:20-alpine|FROM $NODE_BASE|g" frontend/Dockerfile
-      sed -i "s|FROM nginx:alpine|FROM $NGINX_BASE|g" frontend/Dockerfile
+#     # Patch Dockerfile to use GitLab mirror images
+#     - |
+#       sed -i "s|FROM node:20-alpine|FROM $NODE_BASE|g" frontend/Dockerfile
+#       sed -i "s|FROM nginx:alpine|FROM $NGINX_BASE|g" frontend/Dockerfile
 
-    - docker build -t $REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA frontend/
-    - docker push $REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA
+#     - docker build -t $REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA frontend/
+#     - docker push $REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA
 
-# --------------------------------------------------
-# Build Stock Generator
-# --------------------------------------------------
-build:stock-generator:
-  <<: *default_build
-  script:
-    - docker build -t $REGISTRY/$IMAGE_NAME/stock-generator:$CI_COMMIT_SHA stock-generator/
-    - docker push $REGISTRY/$IMAGE_NAME/stock-generator:$CI_COMMIT_SHA
+# # --------------------------------------------------
+# # Build Stock Generator
+# # --------------------------------------------------
+# build:stock-generator:
+#   <<: *default_build
+#   script:
+#     - docker build -t $REGISTRY/$IMAGE_NAME/stock-generator:$CI_COMMIT_SHA stock-generator/
+#     - docker push $REGISTRY/$IMAGE_NAME/stock-generator:$CI_COMMIT_SHA
 
-# --------------------------------------------------
-# Build Alert Engine
-# --------------------------------------------------
-build:alert-engine:
-  <<: *default_build
-  script:
-    - docker build -t $REGISTRY/$IMAGE_NAME/alert-engine:$CI_COMMIT_SHA alert-engine/
-    - docker push $REGISTRY/$IMAGE_NAME/alert-engine:$CI_COMMIT_SHA
+# # --------------------------------------------------
+# # Build Alert Engine
+# # --------------------------------------------------
+# build:alert-engine:
+#   <<: *default_build
+#   script:
+#     - docker build -t $REGISTRY/$IMAGE_NAME/alert-engine:$CI_COMMIT_SHA alert-engine/
+#     - docker push $REGISTRY/$IMAGE_NAME/alert-engine:$CI_COMMIT_SHA
 
-# --------------------------------------------------
-# Build Backend API
-# --------------------------------------------------
-build:backend-api:
-  <<: *default_build
-  script:
-    - docker build -t $REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA backend-api/
-    - docker push $REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA
+# # --------------------------------------------------
+# # Build Backend API
+# # --------------------------------------------------
+# build:backend-api:
+#   <<: *default_build
+#   script:
+#     - docker build -t $REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA backend-api/
+#     - docker push $REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA
 
-# --------------------------------------------------
-# Deploy (Rolling Update)
-# IMPORTANT: container names must match Kubernetes YAML
-# --------------------------------------------------
-deploy:
-  stage: deploy
-  image: bitnami/kubectl:latest
-  only:
-    - main
-    - Stock-watch-v2
-  script:
-    # stock-generator (container name = stock-generator)
-    - kubectl set image deployment/stock-generator \
-        stock-generator=$REGISTRY/$IMAGE_NAME/stock-generator:$CI_COMMIT_SHA \
-        -n cloud-stock-watcher
+# # --------------------------------------------------
+# # Deploy (Rolling Update)
+# # IMPORTANT: container names must match Kubernetes YAML
+# # --------------------------------------------------
+# deploy:
+#   stage: deploy
+#   image: bitnami/kubectl:latest
+#   only:
+#     - main
+#     - Stock-watch-v2
+#   script:
+#     # stock-generator (container name = stock-generator)
+#     - kubectl set image deployment/stock-generator \
+#         stock-generator=$REGISTRY/$IMAGE_NAME/stock-generator:$CI_COMMIT_SHA \
+#         -n cloud-stock-watcher
 
-    # alert-engine (container name = app)
-    - kubectl set image deployment/alert-engine \
-        app=$REGISTRY/$IMAGE_NAME/alert-engine:$CI_COMMIT_SHA \
-        -n cloud-stock-watcher
+#     # alert-engine (container name = app)
+#     - kubectl set image deployment/alert-engine \
+#         app=$REGISTRY/$IMAGE_NAME/alert-engine:$CI_COMMIT_SHA \
+#         -n cloud-stock-watcher
 
-    # backend-api (container name = backend-api)
-    - kubectl set image deployment/backend-api \
-        backend-api=$REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA \
-        -n cloud-stock-watcher
+#     # backend-api (container name = backend-api)
+#     - kubectl set image deployment/backend-api \
+#         backend-api=$REGISTRY/$IMAGE_NAME/backend-api:$CI_COMMIT_SHA \
+#         -n cloud-stock-watcher
 
-    # frontend (container name = nginx)
-    - kubectl set image deployment/frontend \
-        nginx=$REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA \
-        -n cloud-stock-watcher
+#     # frontend (container name = nginx)
+#     - kubectl set image deployment/frontend \
+#         nginx=$REGISTRY/$IMAGE_NAME/frontend:$CI_COMMIT_SHA \
+#         -n cloud-stock-watcher
 
-    # Wait for rollouts
-    - kubectl rollout status deployment/stock-generator -n cloud-stock-watcher
-    - kubectl rollout status deployment/alert-engine -n cloud-stock-watcher
-    - kubectl rollout status deployment/backend-api -n cloud-stock-watcher
-    - kubectl rollout status deployment/frontend -n cloud-stock-watcher
+#     # Wait for rollouts
+#     - kubectl rollout status deployment/stock-generator -n cloud-stock-watcher
+#     - kubectl rollout status deployment/alert-engine -n cloud-stock-watcher
+#     - kubectl rollout status deployment/backend-api -n cloud-stock-watcher
+#     - kubectl rollout status deployment/frontend -n cloud-stock-watcher
