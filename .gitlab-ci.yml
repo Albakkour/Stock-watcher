@@ -443,15 +443,16 @@
 stages:
   - build
 
-build-frontend:
+build:frontend:
+  stage: build
   image: docker:24-cli
   services:
     - name: docker:24-dind
       command: ["--tls=false"]
-  variables:
-    DOCKER_HOST: tcp://docker:2375
-    DOCKER_TLS_CERTDIR: ""
+  tags:
+    - docker
   script:
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
     - docker build -t "$CI_REGISTRY_IMAGE/frontend:latest" frontend
     - docker push "$CI_REGISTRY_IMAGE/frontend:latest"
+
