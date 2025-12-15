@@ -439,20 +439,25 @@
 #     - kubectl set image deployment/frontend frontend=$REGISTRY/$IMAGE_NAMESPACE/frontend:$CI_COMMIT_SHORT_SHA -n cloud-stock-watcher
 #     - kubectl rollout status deployment/frontend -n cloud-stock-watcher
 # -------------------------
-# Final working version
+# Test again 6
 stages:
   - build
 
-build:frontend:
+build-frontend:
   stage: build
   image: docker:24-cli
   services:
     - name: docker:24-dind
+      alias: docker
       command: ["--tls=false"]
-  tags:
-    - docker
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
   script:
+    - docker info
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
     - docker build -t "$CI_REGISTRY_IMAGE/frontend:latest" frontend
     - docker push "$CI_REGISTRY_IMAGE/frontend:latest"
+
+
 

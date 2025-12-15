@@ -4,10 +4,7 @@ STOCK_SYMBOLS = [
     "AAPL",
     "MSFT",
     "NVDA",
-    "GOOG",
-    "AMZN",
-    "META",
-    "BTC",
+    "GOOG"
 ]
 
 # Format as comma-separated string for environment variables
