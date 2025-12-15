@@ -1,4 +1,5 @@
-FROM python:3.11-slim
+FROM gitlab.control.lth.se:5050/regler/frtn90/2025/agroup01/python:3.11
+
 
 WORKDIR /app
 
