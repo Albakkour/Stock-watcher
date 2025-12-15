@@ -100,7 +100,7 @@
 
 stages:
   - build
-  - deploy
+  # - deploy
 
 variables:
   REGISTRY: "gitlab.control.lth.se:5050"
@@ -149,21 +149,21 @@ build:frontend:
     - docker build -t $REGISTRY/$IMAGE_NAME/frontend:latest frontend
     - docker push $REGISTRY/$IMAGE_NAME/frontend:latest
 
-deploy:
-  stage: deploy
-  image: bitnami/kubectl:latest
-  only:
-    - main
-    - Stock-watch-v2
-  script:
-    - kubectl set image deployment/stock-generator stock-generator=$REGISTRY/$IMAGE_NAME/stock-generator:latest -n cloud-stock-watcher
-    - kubectl set image deployment/alert-engine alert-engine=$REGISTRY/$IMAGE_NAME/alert-engine:latest -n cloud-stock-watcher
-    - kubectl set image deployment/backend-api backend-api=$REGISTRY/$IMAGE_NAME/backend-api:latest -n cloud-stock-watcher
-    - kubectl set image deployment/frontend frontend=$REGISTRY/$IMAGE_NAME/frontend:latest -n cloud-stock-watcher
-    - kubectl rollout status deployment/stock-generator -n cloud-stock-watcher
-    - kubectl rollout status deployment/alert-engine -n cloud-stock-watcher
-    - kubectl rollout status deployment/backend-api -n cloud-stock-watcher
-    - kubectl rollout status deployment/frontend -n cloud-stock-watcher
+# deploy:
+#   stage: deploy
+#   image: bitnami/kubectl:latest
+#   only:
+#     - main
+#     - Stock-watch-v2
+#   script:
+#     - kubectl set image deployment/stock-generator stock-generator=$REGISTRY/$IMAGE_NAME/stock-generator:latest -n cloud-stock-watcher
+#     - kubectl set image deployment/alert-engine alert-engine=$REGISTRY/$IMAGE_NAME/alert-engine:latest -n cloud-stock-watcher
+#     - kubectl set image deployment/backend-api backend-api=$REGISTRY/$IMAGE_NAME/backend-api:latest -n cloud-stock-watcher
+#     - kubectl set image deployment/frontend frontend=$REGISTRY/$IMAGE_NAME/frontend:latest -n cloud-stock-watcher
+#     - kubectl rollout status deployment/stock-generator -n cloud-stock-watcher
+#     - kubectl rollout status deployment/alert-engine -n cloud-stock-watcher
+#     - kubectl rollout status deployment/backend-api -n cloud-stock-watcher
+#     - kubectl rollout status deployment/frontend -n cloud-stock-watcher
 
 
 # stages:
