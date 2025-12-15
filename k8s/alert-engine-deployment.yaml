@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: alert-engine
-        image: gitlab.control.lth.se:5050/regler/frtn90/2025/agroup01/alert-engine:v2
+        image: gitlab.control.lth.se:5050/regler/frtn90/2025/agroup01/alert-engine:latest
         imagePullPolicy: Always
         env:
           - name: REDIS_HOST
