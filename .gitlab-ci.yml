@@ -440,24 +440,84 @@
 #     - kubectl rollout status deployment/frontend -n cloud-stock-watcher
 # -------------------------
 # Test again 6
+# stages:
+#   - build
+
+# build-frontend:
+#   stage: build
+#   image: docker:24-cli
+#   services:
+#     - name: docker:24-dind
+#       alias: docker
+#       command: ["--tls=false"]
+#   variables:
+#     DOCKER_HOST: tcp://docker:2375
+#     DOCKER_TLS_CERTDIR: ""
+#   script:
+#     - docker info
+#     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+#     - docker build -t "$CI_REGISTRY_IMAGE/frontend:latest" frontend
+#     - docker push "$CI_REGISTRY_IMAGE/frontend:latest"
+# ---------------------------
+# test 7 -
 stages:
   - build
 
+variables:
+  REGISTRY_PATH: "$CI_REGISTRY_IMAGE"
+  BUILDAH_STORAGE_DRIVER: "vfs"
+  BUILDAH_ISOLATION: "chroot"
+  STORAGE_DRIVER: "vfs"
+
 build-frontend:
   stage: build
-  image: docker:24-cli
-  services:
-    - name: docker:24-dind
-      alias: docker
-      command: ["--tls=false"]
-  variables:
-    DOCKER_HOST: tcp://docker:2375
-    DOCKER_TLS_CERTDIR: ""
+  image: quay.io/buildah/stable:latest
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "stock-watch-v2"'
+    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
+    - if: "$CI_COMMIT_TAG"
   script:
-    - docker info
-    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
-    - docker build -t "$CI_REGISTRY_IMAGE/frontend:latest" frontend
-    - docker push "$CI_REGISTRY_IMAGE/frontend:latest"
+    - set -eu
+
+    # Buildah environment (IDENTICAL to your friend's)
+    - export BUILDAH_FORMAT=docker
+    - export STORAGE_DRIVER="$BUILDAH_STORAGE_DRIVER"
+    - export XDG_RUNTIME_DIR="$CI_PROJECT_DIR/.xdg"
+    - export TMPDIR="$CI_PROJECT_DIR/.tmp"
+    - mkdir -p "$XDG_RUNTIME_DIR" "$TMPDIR"
+
+    # Login to GitLab Container Registry
+    - buildah --storage-driver "$BUILDAH_STORAGE_DRIVER" \
+        login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+
+    # Tag logic (same as your friend)
+    - TAG="${CI_COMMIT_TAG:-$CI_COMMIT_REF_SLUG}"
+
+    # Build frontend image (NOTE THE PATH)
+    - buildah --storage-driver "$BUILDAH_STORAGE_DRIVER" \
+        bud -t "$REGISTRY_PATH/frontend:$TAG" frontend
+
+    # Additional tag with short SHA
+    - buildah --storage-driver "$BUILDAH_STORAGE_DRIVER" \
+        tag "$REGISTRY_PATH/frontend:$TAG" \
+            "$REGISTRY_PATH/frontend:$CI_COMMIT_SHORT_SHA"
+
+    # Push images
+    - buildah --storage-driver "$BUILDAH_STORAGE_DRIVER" \
+        push "$REGISTRY_PATH/frontend:$TAG"
+
+    - buildah --storage-driver "$BUILDAH_STORAGE_DRIVER" \
+        push "$REGISTRY_PATH/frontend:$CI_COMMIT_SHORT_SHA"
+
+    # Push :latest ONLY on default branch
+    - |
+      if [ "${CI_COMMIT_BRANCH:-}" = "$CI_DEFAULT_BRANCH" ]; then
+        buildah --storage-driver "$BUILDAH_STORAGE_DRIVER" \
+          tag "$REGISTRY_PATH/frontend:$TAG" "$REGISTRY_PATH/frontend:latest"
+
+        buildah --storage-driver "$BUILDAH_STORAGE_DRIVER" \
+          push "$REGISTRY_PATH/frontend:latest"
+      fi
 
 
 

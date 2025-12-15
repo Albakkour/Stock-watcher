@@ -7,6 +7,7 @@ import { AlertList } from "./components/AlertList";
 import { RefreshCw, Trash2, Zap, WifiOff } from "lucide-react";
 // import { mockAlerts, mockNotifications } from "./mockData";
 
+
 const API_BASE = (import.meta as any).env?.VITE_API_BASE || "http://localhost:8000";
 
 function App() {
