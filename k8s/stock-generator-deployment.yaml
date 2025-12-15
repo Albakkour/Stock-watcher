@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: stock-generator
-          image: gitlab.control.lth.se:5050/regler/frtn90/2025/agroup01/stock-generator:latest
+          image: gitlab.control.lth.se:5050/regler/frtn90/2025/agroup01/stock-generator:v6
           imagePullPolicy: Always
           env:
             - name: REDIS_HOST

@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: backend-api
-          image: gitlab.control.lth.se:5050/regler/frtn90/2025/agroup01/backend-api:latest
+          image: gitlab.control.lth.se:5050/regler/frtn90/2025/agroup01/backend-api:v4
           imagePullPolicy: Always
           env:
             - name: REDIS_HOST
