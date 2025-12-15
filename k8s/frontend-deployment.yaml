@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: gitlab.control.lth.se:5050/regler/frtn90/2025/agroup01/frontend:stock-watch-v2
+          image: gitlab.control.lth.se:5050/regler/frtn90/2025/agroup01/frontend:v8
           imagePullPolicy: Always
           ports:
             - containerPort: 80

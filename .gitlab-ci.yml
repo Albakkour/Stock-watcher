@@ -474,12 +474,12 @@ build-frontend:
   image: quay.io/buildah/stable:latest
   rules:
     - if: '$CI_COMMIT_BRANCH == "stock-watch-v2"'
-    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
-    - if: "$CI_COMMIT_TAG"
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_COMMIT_TAG'
   script:
     - set -eu
 
-    # Buildah environment (IDENTICAL to your friend's)
+    # Buildah environment (IDENTICAL to your friend's working setup)
     - export BUILDAH_FORMAT=docker
     - export STORAGE_DRIVER="$BUILDAH_STORAGE_DRIVER"
     - export XDG_RUNTIME_DIR="$CI_PROJECT_DIR/.xdg"
@@ -490,14 +490,14 @@ build-frontend:
     - buildah --storage-driver "$BUILDAH_STORAGE_DRIVER" \
         login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
 
-    # Tag logic (same as your friend)
+    # Tag logic (branch name or tag)
     - TAG="${CI_COMMIT_TAG:-$CI_COMMIT_REF_SLUG}"
 
-    # Build frontend image (NOTE THE PATH)
+    # Build frontend image (Dockerfile is in frontend/)
     - buildah --storage-driver "$BUILDAH_STORAGE_DRIVER" \
         bud -t "$REGISTRY_PATH/frontend:$TAG" frontend
 
-    # Additional tag with short SHA
+    # Tag with short SHA
     - buildah --storage-driver "$BUILDAH_STORAGE_DRIVER" \
         tag "$REGISTRY_PATH/frontend:$TAG" \
             "$REGISTRY_PATH/frontend:$CI_COMMIT_SHORT_SHA"
@@ -518,6 +518,3 @@ build-frontend:
         buildah --storage-driver "$BUILDAH_STORAGE_DRIVER" \
           push "$REGISTRY_PATH/frontend:latest"
       fi
-
-
-
