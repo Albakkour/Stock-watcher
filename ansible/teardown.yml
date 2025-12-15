@@ -4,7 +4,8 @@
   gather_facts: no
 
   tasks:
-    - name: Delete Kubernetes manifests
+    - name: Delete application manifests
       command: kubectl delete -f k8s/
       args:
         chdir: "{{ playbook_dir }}/.."
+      ignore_errors: yes

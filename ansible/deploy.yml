@@ -4,7 +4,12 @@
   gather_facts: no
 
   tasks:
-    - name: Apply Kubernetes manifests
+    - name: Create namespace
+      command: kubectl apply -f k8s/namespace.yaml
+      args:
+        chdir: "{{ playbook_dir }}/.."
+
+    - name: Deploy application manifests
       command: kubectl apply -f k8s/
       args:
         chdir: "{{ playbook_dir }}/.."
