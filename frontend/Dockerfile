@@ -1,5 +1,4 @@
-# FROM node:20-alpine AS build
-FROM gitlab.control.lth.se:5050/regler/frtn90/2025/agroup15/nginx:1.27-alpine AS build
+FROM node:20-alpine AS build
 
 WORKDIR /app
 COPY package.json package-lock.json* ./
@@ -8,7 +7,7 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-FROM nginx:alpine
+FROM nginx:1.27-alpine
 
 RUN rm /etc/nginx/conf.d/default.conf
 
