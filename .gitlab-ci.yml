@@ -277,6 +277,8 @@ variables:
 build-stock-generator:
   stage: build
   image: docker:24
+  tags:
+    - docker
   services:
     - docker:24-dind
 
@@ -297,8 +299,11 @@ build-stock-generator:
 build-backend-api:
   stage: build
   image: docker:24
+  tags:
+    - docker
   services:
     - docker:24-dind
+    
 
   before_script:
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
