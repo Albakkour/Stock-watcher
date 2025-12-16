@@ -98,56 +98,78 @@
 
 
 
-stages:
-  - build
-  # - deploy
 
-variables:
-  REGISTRY: "gitlab.control.lth.se:5050"
-  IMAGE_NAME: "regler/frtn90/2025/agroup01"
 
-.default_build: &default_build
-  stage: build
-  image: docker:latest
-  tags:
-    - docker      # <<< IMPORTANT: force docker executor
-  services:
-    - name: docker:dind
-      command: ["--tls=false"]
-  variables:
-    DOCKER_HOST: "tcp://docker:2375"
-    DOCKER_TLS_CERTDIR: ""
-  only:
-    - main
-    - Stock-watch-v2
 
-build:stock-generator:
-  <<: *default_build
-  script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
-    - docker build -t $REGISTRY/$IMAGE_NAME/stock-generator:latest stock-generator
-    - docker push $REGISTRY/$IMAGE_NAME/stock-generator:latest
 
-build:alert-engine:
-  <<: *default_build
-  script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
-    - docker build -t $REGISTRY/$IMAGE_NAME/alert-engine:latest alert-engine
-    - docker push $REGISTRY/$IMAGE_NAME/alert-engine:latest
 
-build:backend-api:
-  <<: *default_build
-  script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
-    - docker build -t $REGISTRY/$IMAGE_NAME/backend-api:latest backend-api
-    - docker push $REGISTRY/$IMAGE_NAME/backend-api:latest
 
-build:frontend:
-  <<: *default_build
-  script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
-    - docker build -t $REGISTRY/$IMAGE_NAME/frontend:latest frontend
-    - docker push $REGISTRY/$IMAGE_NAME/frontend:latest
+
+
+
+
+
+
+
+##the working version below##
+
+# stages:
+#   - build
+#   # - deploy
+
+# variables:
+#   REGISTRY: "gitlab.control.lth.se:5050"
+#   IMAGE_NAME: "regler/frtn90/2025/agroup01"
+
+# .default_build: &default_build
+#   stage: build
+#   image: docker:latest
+#   tags:
+#     - docker      # <<< IMPORTANT: force docker executor
+#   services:
+#     - name: docker:dind
+#       command: ["--tls=false"]
+#   variables:
+#     DOCKER_HOST: "tcp://docker:2375"
+#     DOCKER_TLS_CERTDIR: ""
+#   only:
+#     - main
+#     - Stock-watch-v2
+
+# build:stock-generator:
+#   <<: *default_build
+#   script:
+#     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
+#     - docker build -t $REGISTRY/$IMAGE_NAME/stock-generator:latest stock-generator
+#     - docker push $REGISTRY/$IMAGE_NAME/stock-generator:latest
+
+# build:alert-engine:
+#   <<: *default_build
+#   script:
+#     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
+#     - docker build -t $REGISTRY/$IMAGE_NAME/alert-engine:latest alert-engine
+#     - docker push $REGISTRY/$IMAGE_NAME/alert-engine:latest
+
+# build:backend-api:
+#   <<: *default_build
+#   script:
+#     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
+#     - docker build -t $REGISTRY/$IMAGE_NAME/backend-api:latest backend-api
+#     - docker push $REGISTRY/$IMAGE_NAME/backend-api:latest
+
+# build:frontend:
+#   <<: *default_build
+#   script:
+#     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $REGISTRY
+#     - docker build -t $REGISTRY/$IMAGE_NAME/frontend:latest frontend
+#     - docker push $REGISTRY/$IMAGE_NAME/frontend:latest
+
+
+
+
+
+
+
 
 # deploy:
 #   stage: deploy
@@ -242,3 +264,41 @@ build:frontend:
 #     - kubectl rollout status deployment/alert-engine -n cloud-stock-watcher
 #     - kubectl rollout status deployment/backend-api -n cloud-stock-watcher
 #     - kubectl rollout status deployment/frontend -n cloud-stock-watcher
+
+
+
+
+
+stages:
+  - build
+
+variables:
+  IMAGE_NAME: stock-generator
+  IMAGE_TAG: $CI_COMMIT_SHA
+  REGISTRY_IMAGE: $CI_REGISTRY/regler/frtn90/2025/agroup01/$IMAGE_NAME
+
+build-stock-generator:
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+
+  variables:
+    DOCKER_TLS_CERTDIR: ""
+
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+
+  script:
+    # Build image with commit SHA
+    - docker build -t $REGISTRY_IMAGE:$IMAGE_TAG stock-generator/
+
+    # Tag the same image as latest
+    - docker tag $REGISTRY_IMAGE:$IMAGE_TAG $REGISTRY_IMAGE:latest
+
+    # Push both tags
+    - docker push $REGISTRY_IMAGE:$IMAGE_TAG
+    - docker push $REGISTRY_IMAGE:latest
+
+  only:
+    - main
