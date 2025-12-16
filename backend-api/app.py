@@ -7,7 +7,7 @@ import json
 from datetime import datetime
 from fastapi.middleware.cors import CORSMiddleware
 
-
+#a
 REDIS_HOST = os.getenv("REDIS_HOST", "redis")
 REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
 
