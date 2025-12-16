@@ -267,58 +267,34 @@
 
 
 
-
 stages:
   - build
 
 variables:
   REGISTRY_BASE: $CI_REGISTRY/regler/frtn90/2025/agroup01
 
-# -----------------------------
-# Stock Generator
-# -----------------------------
+
+before_script:
+  - sudo docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+
+
 build-stock-generator:
   stage: build
-  image: docker:24
-  services:
-    - docker:24-dind
-
-  variables:
-    DOCKER_TLS_CERTDIR: ""
-
-  before_script:
-    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
-
   script:
-    - docker build -t $REGISTRY_BASE/stock-generator:$CI_COMMIT_SHA stock-generator/
-    - docker tag  $REGISTRY_BASE/stock-generator:$CI_COMMIT_SHA $REGISTRY_BASE/stock-generator:latest
-    - docker push $REGISTRY_BASE/stock-generator:$CI_COMMIT_SHA
-    - docker push $REGISTRY_BASE/stock-generator:latest
-
+    - sudo docker build -t $REGISTRY_BASE/stock-generator:$CI_COMMIT_SHA stock-generator/
+    - sudo docker tag  $REGISTRY_BASE/stock-generator:$CI_COMMIT_SHA $REGISTRY_BASE/stock-generator:latest
+    - sudo docker push $REGISTRY_BASE/stock-generator:$CI_COMMIT_SHA
+    - sudo docker push $REGISTRY_BASE/stock-generator:latest
   only:
     - main
 
 
-# -----------------------------
-# Backend API
-# -----------------------------
 build-backend-api:
   stage: build
-  image: docker:24
-  services:
-    - docker:24-dind
-
-  variables:
-    DOCKER_TLS_CERTDIR: ""
-
-  before_script:
-    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
-
   script:
-    - docker build -t $REGISTRY_BASE/backend-api:$CI_COMMIT_SHA backend-api/
-    - docker tag  $REGISTRY_BASE/backend-api:$CI_COMMIT_SHA $REGISTRY_BASE/backend-api:latest
-    - docker push $REGISTRY_BASE/backend-api:$CI_COMMIT_SHA
-    - docker push $REGISTRY_BASE/backend-api:latest
-
+    - sudo docker build -t $REGISTRY_BASE/backend-api:$CI_COMMIT_SHA backend-api/
+    - sudo docker tag  $REGISTRY_BASE/backend-api:$CI_COMMIT_SHA $REGISTRY_BASE/backend-api:latest
+    - sudo docker push $REGISTRY_BASE/backend-api:$CI_COMMIT_SHA
+    - sudo docker push $REGISTRY_BASE/backend-api:latest
   only:
     - main
