@@ -316,3 +316,37 @@ build-backend-api:
 
   only:
     - main
+
+build-frontend:
+  stage: build
+  image: docker:24
+  tags:
+    - docker
+  services:
+    - docker:24-dind
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+  script:
+    - docker build -t $REGISTRY_BASE/frontend:$CI_COMMIT_SHA frontend/
+    - docker tag  $REGISTRY_BASE/frontend:$CI_COMMIT_SHA $REGISTRY_BASE/frontend:latest
+    - docker push $REGISTRY_BASE/frontend:$CI_COMMIT_SHA
+    - docker push $REGISTRY_BASE/frontend:latest
+  only:
+    - main
+
+build-alert-engine:
+  stage: build
+  image: docker:24
+  tags:
+    - docker
+  services:
+    - docker:24-dind
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+  script:
+    - docker build -t $REGISTRY_BASE/alert-engine:$CI_COMMIT_SHA alert-engine/
+    - docker tag  $REGISTRY_BASE/alert-engine:$CI_COMMIT_SHA $REGISTRY_BASE/alert-engine:latest
+    - docker push $REGISTRY_BASE/alert-engine:$CI_COMMIT_SHA
+    - docker push $REGISTRY_BASE/alert-engine:latest
+  only:
+    - main
