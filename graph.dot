@@ -1,0 +1,36 @@
+digraph CloudStockWatcher {
+    rankdir=TB;
+    node [shape=rect style=filled fillcolor="#e8f0fe" fontname="Arial"];
+
+    subgraph cluster_workload {
+        label="Outside Kubernetes";
+        style=dashed;
+        WG [label="Workload Generator"];
+    }
+
+    subgraph cluster_k8s {
+        label="Kubernetes Cluster";
+        style=solid;
+
+        FE [label="Frontend (React+Nginx)\nNodePort :30080"];
+        BE [label="Backend API (FastAPI)\nNodePort :30081"];
+        REDIS [label="Redis (DB)\nPrices, Alerts, Notifications"];
+        RABBIT [label="RabbitMQ\nMessage Bus"];
+        GEN [label="Stock Generator\nPublishes Prices"];
+        ALERT [label="Alert Engine\nConsumes Prices\nCreates Notifications"];
+    }
+
+
+    WG -> BE [label="HTTP Load"];
+    FE -> BE [label="HTTP /api/*"];
+
+
+    BE -> REDIS [label="Read/Write"];
+
+
+    GEN -> RABBIT [label="Publish Price Messages"];
+    RABBIT -> ALERT [label="Consume Price Messages"];
+    ALERT -> REDIS [label="Write Notifications"];
+
+    FE -> BE;
+}
