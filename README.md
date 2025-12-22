@@ -1,4 +1,4 @@
-# agroup01
+# Stock-watcher
 
 ## Quick Start / Usage Instructions
 
