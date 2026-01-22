@@ -1,97 +1,27 @@
 services:
-  # Backend API
   - type: web
     name: stock-watcher-api
     env: python
     buildCommand: pip install -r backend-api/requirements.txt
     startCommand: cd backend-api && uvicorn app:app --host 0.0.0.0 --port $PORT
     envVars:
-      - key: REDIS_HOST
-        fromDatabase:
-          name: stock-watcher-redis
-          property: host
-      - key: REDIS_PORT
-        fromDatabase:
-          name: stock-watcher-redis
-          property: port
-      - key: REDIS_PASSWORD
-        fromDatabase:
-          name: stock-watcher-redis
-          property: password
       - key: PORT
-        value: 8000
+        value: "8000"
 
-  # Alert Engine Worker
   - type: worker
     name: stock-watcher-alert-engine
     env: python
     buildCommand: pip install -r alert-engine/requirements.txt
     startCommand: cd alert-engine && python worker.py
-    envVars:
-      - key: REDIS_HOST
-        fromDatabase:
-          name: stock-watcher-redis
-          property: host
-      - key: REDIS_PORT
-        fromDatabase:
-          name: stock-watcher-redis
-          property: port
-      - key: REDIS_PASSWORD
-        fromDatabase:
-          name: stock-watcher-redis
-          property: password
-      # Option 1: Use RABBIT_URL (recommended for CloudAMQP)
-      - key: RABBIT_URL
-        sync: false  # Set this to CloudAMQP connection URL (amqp://user:pass@host/vhost)
-      # Option 2: Use individual parameters (alternative)
-      - key: RABBIT_HOST
-        sync: false
-      - key: RABBIT_USER
-        sync: false
-      - key: RABBIT_PASS
-        sync: false
-      - key: RABBIT_VHOST
-        sync: false
-        value: /
 
-  # Stock Generator Worker
+
   - type: worker
     name: stock-watcher-generator
     env: python
     buildCommand: pip install -r stock-generator/requirements.txt
     startCommand: cd stock-generator && python worker.py
     envVars:
-      - key: REDIS_HOST
-        fromDatabase:
-          name: stock-watcher-redis
-          property: host
-      - key: REDIS_PORT
-        fromDatabase:
-          name: stock-watcher-redis
-          property: port
-      - key: REDIS_PASSWORD
-        fromDatabase:
-          name: stock-watcher-redis
-          property: password
-      # Option 1: Use RABBIT_URL (recommended for CloudAMQP)
-      - key: RABBIT_URL
-        sync: false  # Set this to CloudAMQP connection URL (amqp://user:pass@host/vhost)
-      # Option 2: Use individual parameters (alternative)
-      - key: RABBIT_HOST
-        sync: false
-      - key: RABBIT_USER
-        sync: false
-      - key: RABBIT_PASS
-        sync: false
-      - key: RABBIT_VHOST
-        sync: false
-        value: /
       - key: STOCK_SYMBOLS
         value: TSLA,AAPL,MSFT,NVDA,GOOG
       - key: UPDATE_PERIOD
-        value: 15.0
-
-databases:
-  - name: stock-watcher-redis
-    databaseName: stock-watcher-redis
-    plan: free  # Free tier Redis (25MB, no persistence)
+        value: "15"
