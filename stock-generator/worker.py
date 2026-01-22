@@ -13,10 +13,14 @@ load_dotenv()
 
 REDIS_HOST = os.getenv("REDIS_HOST", "redis")
 REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
 
+# Support both URL format (CloudAMQP) and individual parameters
+RABBIT_URL = os.getenv("RABBIT_URL", None)
 RABBIT_HOST = os.getenv("RABBIT_HOST", "rabbitmq")
 RABBIT_USER = os.getenv("RABBIT_USER", "appuser")
 RABBIT_PASS = os.getenv("RABBIT_PASS", "apppass")
+RABBIT_VHOST = os.getenv("RABBIT_VHOST", "/")
 
 SYMBOLS = os.getenv(
     "STOCK_SYMBOLS",
@@ -30,12 +34,22 @@ STOCKS_KEY = "csw:stocks"
 r = redis.Redis(
     host=REDIS_HOST,
     port=REDIS_PORT,
+    password=REDIS_PASSWORD,
     decode_responses=True
 )
 
 
-credentials = pika.PlainCredentials(RABBIT_USER, RABBIT_PASS)
-params = pika.ConnectionParameters(host=RABBIT_HOST, credentials=credentials)
+if RABBIT_URL:
+    # Use URL format (CloudAMQP provides this)
+    params = pika.URLParameters(RABBIT_URL)
+else:
+    # Use individual parameters
+    credentials = pika.PlainCredentials(RABBIT_USER, RABBIT_PASS)
+    params = pika.ConnectionParameters(
+        host=RABBIT_HOST, 
+        credentials=credentials,
+        virtual_host=RABBIT_VHOST
+    )
 
 connection = pika.BlockingConnection(params)
 channel = connection.channel()

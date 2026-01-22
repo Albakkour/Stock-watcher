@@ -10,8 +10,14 @@ from fastapi.middleware.cors import CORSMiddleware
 #a
 REDIS_HOST = os.getenv("REDIS_HOST", "redis")
 REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
 
-r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+r = redis.Redis(
+    host=REDIS_HOST, 
+    port=REDIS_PORT, 
+    password=REDIS_PASSWORD,
+    decode_responses=True
+)
 
 app = FastAPI(
     title="Cloud Stock Watcher API",
